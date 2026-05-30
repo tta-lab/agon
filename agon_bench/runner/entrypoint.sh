@@ -4,20 +4,14 @@
 #
 # Usage: agon-run --task <name>
 #
-# Environment variables:
-#   LENOS_MODEL         — model to use (e.g. claude-sonnet-4)
-#   LENOS_PROVIDER      — provider name (e.g. anthropic)
-#   LENOS_PROVIDER_KEY  — API key for the provider
-#   AGENT_TIMEOUT_SEC   — max agent execution time (default: 300)
-#   TEST_TIMEOUT_SEC    — max test execution time (default: 60)
-#   LENOS_VERSION       — lenos version string (for metadata)
+# Lenos reads its provider config from the mounted data dir.
+# No secrets in env vars or image.
 set -euo pipefail
 TASK_NAME=""
-MODEL="${LENOS_MODEL:-}"
+MODEL=""
 RESULTS_DIR="${RESULTS_DIR:-/results}"
 TRANSCRIPTS_DIR="${TRANSCRIPTS_DIR:-/transcripts}"
 TASK_DIR="${TASK_DIR:-/tasks}"
-# Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --task)
@@ -46,23 +40,18 @@ fi
 echo "=== Agon Runner ==="
 echo "Task:      ${TASK_NAME}"
 echo "Task dir:  ${TASK_PATH}"
-echo "Model:     ${MODEL:-default}"
 echo "Timeout:   ${AGENT_TIMEOUT_SEC:-300}s"
 echo ""
-# Verify binaries are available
 echo "--- Binary versions ---"
 lenos --version 2>&1 || { echo "ERROR: lenos not found"; exit 1; }
 temenos --version 2>&1 || { echo "ERROR: temenos not found"; exit 1; }
 echo ""
-# Start temenos daemon in the background
 echo "--- Starting temenos daemon ---"
 temenos daemon &
 TEMENOS_PID=$!
-# Give it a moment to start
 sleep 1
 echo "Temenos daemon running (PID: ${TEMENOS_PID})"
 echo ""
-# Run the Python adapter
 echo "--- Running task ---"
 python3 /usr/local/bin/agon-runner.py \
     --task-dir "${TASK_PATH}" \
@@ -72,7 +61,6 @@ python3 /usr/local/bin/agon-runner.py \
 RUNNER_EXIT=$?
 echo ""
 echo "--- Runner finished (exit: ${RUNNER_EXIT}) ---"
-# Stop temenos daemon
 kill "${TEMENOS_PID}" 2>/dev/null || true
 wait "${TEMENOS_PID}" 2>/dev/null || true
 exit "${RUNNER_EXIT}"

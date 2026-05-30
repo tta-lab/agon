@@ -23,15 +23,13 @@ Taskfile.yaml        # Build, run, and test commands
 - `make` (or `bash`) — primary local interface; `task` is optional
 - `ruff` (optional) — Python formatting and linting
 - `shfmt` (optional) — shell script formatting
-### Secrets and Environment Variables
-Provider credentials are **never** stored in this repo or baked into Docker images.
-Set them at runtime:
-```bash
-export LENOS_PROVIDER=anthropic
-export LENOS_PROVIDER_KEY=sk-ant-...
-export LENOS_MODEL=claude-sonnet-4
+### Secrets
+Provider credentials are **never** stored in this repo, baked into Docker images, or passed as environment variables.
+The container mounts your host Lenos config directory **read-only**:
 ```
-Lenos reads provider config from environment variables automatically.
+~/.local/share/lenos  →  /root/.local/share/lenos:ro
+```
+Lenos inside the container reads your existing `config.json` and credentials exactly as configured on the host. Nothing leaves the host — the container can read secrets but never access them.
 ## Binary Acquisition
 The Docker image is based on the [Terminal-Bench base image](https://github.com/laude-institute/terminal-bench/packages) (`ghcr.io/laude-institute/t-bench/ubuntu-24-04`) which provides `tmux` and `asciinema`. On top of that, it bundles:
 - **lenos** — built from source via `git clone` + `go build` (avoids replace directive issues with `go install`)
@@ -78,23 +76,22 @@ docker pull ghcr.io/tta-lab/agon-runner:latest
 ## Quickstart
 Use **`make`** or **`./scripts/*.sh`** as the primary local interface. `task` is available but optional.
 ```bash
-# 1. Build the benchmark image
+# 1. Set up Lenos on your host (if not already done)
+lenos
+# 2. Build the benchmark image
 make build-image
-# 2. Run the smoke task (requires provider env vars)
-export LENOS_PROVIDER=anthropic
-export LENOS_PROVIDER_KEY=sk-ant-...
-export LENOS_MODEL=claude-sonnet-4
+# 3. Run the smoke task (reads your host Lenos config)
 make run-smoke
-# 3. Verify reference solution (no keys needed)
+# 4. Verify reference solution (no keys needed)
 make test-solution
-# 4. View results
+# 5. View results
 make results
-# 5. Interactive shell in the container
+# 6. Interactive shell with Lenos config mounted
 make shell
-# 6. Format and lint
+# 7. Format and lint
 make fmt
 make lint
-# 7. Clean up
+# 8. Clean up
 make clean
 ```
 All commands delegate to scripts in `scripts/`. Run `make help` to see all targets.
