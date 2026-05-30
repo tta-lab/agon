@@ -22,14 +22,15 @@ echo "Total runs: $TOTAL"
 echo "Passed:     $PASSED"
 echo "Failed:     $((TOTAL - PASSED))"
 echo ""
-python3 -c "
+python3 << PYEOF
 import json
-print(f'{'RUN ID':<18} {'STATUS':<8} {'DURATION':>10} {'MODEL':<20}')
-print('-' * 56)
+header = f"{'RUN ID':<18} {'STATUS':<8} {'DURATION':>10} {'MODEL':<20}"
+print(header)
+print('-' * len(header))
 for line in open('$RESULTS_FILE'):
     r = json.loads(line)
     status = 'PASS' if r['agent']['exit_code'] == 0 and not r['agent']['timed_out'] else 'FAIL'
-    dur = f\"{r['agent']['duration_sec']:.1f}s\"
+    dur = f"{r['agent']['duration_sec']:.1f}s"
     model = r['agent'].get('model', '') or '-'
-    print(f\"{r['run_id']:<18} {status:<8} {dur:>10} {model:<20}\")
-"
+    print(f"{r['run_id']:<18} {status:<8} {dur:>10} {model:<20}")
+PYEOF

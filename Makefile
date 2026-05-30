@@ -3,7 +3,7 @@
 .PHONY: build-image run-smoke test-solution results shell fmt lint clean help
 build-image:           ## Build the benchmark Docker image
 	./scripts/build-image.sh
-run-smoke: build-image ## Run the smoke task through the benchmark adapter (requires provider env vars)
+run-smoke: build-image ## Run the smoke task through the benchmark adapter (requires host Lenos config)
 	./scripts/run-smoke.sh
 test-solution: build-image ## Verify smoke task reference solution + pytest (no keys needed)
 	./scripts/test-solution.sh

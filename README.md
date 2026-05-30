@@ -13,7 +13,8 @@ agon_bench/
 ├── results/         # JSONL result output (git-ignored)
 ├── transcripts/     # Per-run transcripts (git-ignored)
 └── STORAGE.md       # Result/transcript format docs
-Taskfile.yaml        # Build, run, and test commands
+Makefile             # Build, run, and test commands
+scripts/             # Shell scripts backing Makefile targets
 ```
 ## Requirements
 ### Host Tools
@@ -25,11 +26,11 @@ Taskfile.yaml        # Build, run, and test commands
 - `shfmt` (optional) — shell script formatting
 ### Secrets
 Provider credentials are **never** stored in this repo, baked into Docker images, or passed as environment variables.
-The container mounts your host Lenos config directory **read-only**:
+The container mounts your host Lenos config directory at runtime:
 ```
 ~/.local/share/lenos  →  /root/.local/share/lenos:ro
 ```
-Lenos inside the container reads your existing `config.json` and credentials exactly as configured on the host. Nothing leaves the host — the container can read secrets but never access them.
+Lenos inside the container reads your existing `config.json` to authenticate with providers. The mount is read-only — the container can read credentials but cannot modify or write back to the host config.
 ## Binary Acquisition
 The Docker image is based on the [Terminal-Bench base image](https://github.com/laude-institute/terminal-bench/packages) (`ghcr.io/laude-institute/t-bench/ubuntu-24-04`) which provides `tmux` and `asciinema`. On top of that, it bundles:
 - **lenos** — built from source via `git clone` + `go build` (avoids replace directive issues with `go install`)
@@ -58,10 +59,10 @@ The CI workflow (`.github/workflows/build-image.yml`) runs two verification laye
 - **Binary smoke check** — verifies `lenos --version`, `temenos --version`, Python version, and runner scripts are present in the built image
 - **Smoke task verifier** — runs `solution.sh` then `pytest` against the smoke task test suite; confirms the task package is intact and tests pass against the reference solution
 No provider credentials required for Layer 1.
-### Layer 2: Secret-gated (requires provider keys)
+### Layer 2: Secret-gated (requires host Lenos config)
 - **Agent benchmark** — `lenos run` solves Terminal-Bench tasks with a real model
-- Only executes when `LENOS_PROVIDER_KEY` is set in the environment
-- Not part of the standard CI pipeline; run manually or via separate workflow
+- Reads provider credentials from the host Lenos config mounted read-only
+- Not part of the standard CI pipeline; run locally with `make run-smoke`
 ### GHCR Image Tags
 Pre-built images are published to **GHCR** on every push to main and on tags:
 ```
