@@ -34,12 +34,12 @@ export LENOS_MODEL=claude-sonnet-4
 Lenos reads provider config from environment variables automatically.
 ## Binary Acquisition
 The Docker image bundles `lenos` and `temenos`:
-- **lenos** — built from source via `go install` (no GitHub release artifacts yet)
+- **lenos** — built from source via `git clone` + `go build` (avoids replace directive issues with `go install`)
 - **temenos** — downloaded from pinned [GitHub releases](https://github.com/tta-lab/temenos/releases)
 Build args control versions:
 ```bash
 docker build -t agon-bench \
-  --build-arg LENOS_VERSION=v1.3.0+0.55.0 \
+  --build-arg LENOS_REF=main \
   --build-arg TEMENOS_VERSION=v0.9.0 \
   --build-arg GO_VERSION=1.26.2 \
   -f agon_bench/runner/Dockerfile .
