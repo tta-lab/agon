@@ -6,7 +6,6 @@ capturing structured results for benchmarking and regression detection.
 ## Structure
 ```
 agon_bench/
-├── config/          # Benchmark configuration (model, timeouts, paths)
 ├── runner/          # Runner adapter — invokes Lenos, writes JSONL results
 ├── tasks/           # Terminal-Bench task corpus
 │   └── smoke/       # Minimal smoke task for harness validation

@@ -42,5 +42,5 @@ Each line in `results.jsonl` is a JSON object:
 ## Rotation
 Results accumulate in `results.jsonl` across runs. To start fresh:
 ```bash
-task clean    # removes all results and transcripts
+make clean    # removes all results and transcripts
 ```

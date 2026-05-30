@@ -2,6 +2,7 @@
 # Minimal sandbox policy — lenos needs to read its config and write to workspace.
 # Env vars to pass through to sandboxed processes.
 allow_env = [
+  "AGENT_TIMEOUT_SEC",
   "TTAL_*",
   "LENOS_*",
   "HOME",

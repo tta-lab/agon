@@ -11,6 +11,7 @@ else
   echo "(ruff not installed, skip Python format)"
 fi
 if command -v shfmt &>/dev/null; then
+  shopt -s globstar nullglob
   shfmt -w agon_bench/**/*.sh scripts/*.sh && SHELL_FORMATTED=1
 else
   echo "(shfmt not installed, skip shell format)"
