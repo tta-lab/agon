@@ -20,7 +20,7 @@ Taskfile.yaml        # Build, run, and test commands
 - **Docker** — containerized execution
 - **Go 1.26+** — building lenos from source inside the Docker image
 - **Python 3.12+** — runner and test infrastructure (`python3`, `pip3`)
-- `make` (or `bash`) — primary local interface; `task` is optional
+- `make` (or `bash`) — primary local interface
 - `ruff` (optional) — Python formatting and linting
 - `shfmt` (optional) — shell script formatting
 ### Secrets
@@ -74,7 +74,7 @@ Pull the pre-built image instead of building locally:
 docker pull ghcr.io/tta-lab/agon-runner:latest
 ```
 ## Quickstart
-Use **`make`** or **`./scripts/*.sh`** as the primary local interface. `task` is available but optional.
+Use **`make`** or **`./scripts/*.sh`** as the primary local interface.
 ```bash
 # 1. Set up Lenos on your host (if not already done)
 lenos
