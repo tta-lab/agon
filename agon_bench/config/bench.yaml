@@ -9,3 +9,7 @@ test_timeout_sec: 60
 # Output paths (relative to repo root)
 results_dir: agon_bench/results
 transcripts_dir: agon_bench/transcripts
+# JSONL results file (appended to each run)
+results_file: results.jsonl
+# Transcript naming: {run_id}.log
+transcript_pattern: "{run_id}.log"
