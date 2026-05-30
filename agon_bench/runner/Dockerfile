@@ -49,8 +49,8 @@ RUN git clone --depth 1 --branch "${LENOS_REF}" https://github.com/tta-lab/lenos
     CGO_ENABLED=0 go build -o /usr/local/bin/lenos . && \
     chmod +x /usr/local/bin/lenos && \
     rm -rf /tmp/lenos-src
-# Create working directories
-RUN mkdir -p /workspace /results /transcripts
+# Create working directories (and config dir to silence temenos warnings)
+RUN mkdir -p /workspace /results /transcripts /root/.local/share/lenos
 # Temenos sandbox config for Docker
 COPY agon_bench/runner/temenos-config.toml /root/.config/temenos/config.toml
 # Runner adapter

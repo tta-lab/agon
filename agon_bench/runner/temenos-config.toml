@@ -15,7 +15,6 @@ allow_env = [
 ]
 # Paths the agent may read.
 allow_read = [
-  "~/.local/share/lenos",       # lenos config and credentials (mounted read-only from host)
   "/usr/local/bin",              # lenos, temenos, python3 binaries
   "/usr/bin",                    # system tools
   "/bin",
