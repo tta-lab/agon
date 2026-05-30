@@ -33,7 +33,7 @@ export LENOS_MODEL=claude-sonnet-4
 ```
 Lenos reads provider config from environment variables automatically.
 ## Binary Acquisition
-The Docker image bundles `lenos` and `temenos`:
+The Docker image is based on the [Terminal-Bench base image](https://github.com/laude-institute/terminal-bench/packages) (`ghcr.io/laude-institute/t-bench/ubuntu-24-04`) which provides `tmux` and `asciinema`. On top of that, it bundles:
 - **lenos** — built from source via `git clone` + `go build` (avoids replace directive issues with `go install`)
 - **temenos** — downloaded from pinned [GitHub releases](https://github.com/tta-lab/temenos/releases)
 Build args control versions:

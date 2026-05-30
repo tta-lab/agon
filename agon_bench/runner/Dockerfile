@@ -11,22 +11,18 @@
 #
 # Provider secrets are NEVER baked into this image.
 # Pass them as environment variables at runtime.
-FROM docker.io/library/ubuntu:24.04
+FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
 # Build args for version pinning
 ARG TEMENOS_VERSION=v0.9.0
 ARG LENOS_REF=main
 ARG GO_VERSION=1.26.2
-# Base tools: tmux/asciinema (required by Terminal-Bench), Python for runner
+# Additional tools: Python for runner (tmux and asciinema come from the base image)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    ca-certificates \
     curl \
     git \
     python3 \
     python3-pip \
     python3-venv \
-    tmux \
-    asciinema \
     && rm -rf /var/lib/apt/lists/*
 # Install Go toolchain for building lenos
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
