@@ -1,0 +1,15 @@
+description: |
+  Create a file named `hello.txt` in the current directory with the exact content:
+  Hello from Lenos!
+  The file must be plain text with no extra whitespace or newlines beyond the single trailing newline.
+author_email: team@tta-lab.com
+difficulty: easy
+tags:
+  - file-manipulation
+  - smoke-test
+max_agent_timeout_sec: 120
+max_test_timeout_sec: 30
+test_scripts:
+  - setup-uv-pytest.sh
+  - run-uv-pytest.sh
+run_tests_in_same_shell: true
