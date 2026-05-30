@@ -11,7 +11,7 @@
 #
 # Provider secrets are NEVER baked into this image.
 # Pass them as environment variables at runtime.
-FROM ubuntu:24.04
+FROM docker.io/library/ubuntu:24.04
 # Build args for version pinning
 ARG TEMENOS_VERSION=v0.9.0
 ARG LENOS_REF=main
