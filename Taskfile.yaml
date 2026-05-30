@@ -1,61 +1,41 @@
 # https://taskfile.dev
+#
+# Agon — Terminal-Bench arena for Lenos evaluation.
+# Makefile + scripts/ are the primary interface. Taskfile is optional.
 version: "3"
 tasks:
   build-image:
-    desc: Build the agon benchmark Docker image locally
+    desc: Build the benchmark Docker image
     cmds:
-      - docker build -t agon-bench -f agon_bench/runner/Dockerfile .
-  pull-image:
-    desc: Pull the pre-built image from GHCR
-    cmds:
-      - docker pull ghcr.io/tta-lab/agon-runner:latest
-      - docker tag ghcr.io/tta-lab/agon-runner:latest agon-bench
+      - ./scripts/build-image.sh
   run-smoke:
-    desc: Build (or pull) image, run the smoke task through the benchmark adapter
+    desc: Run the smoke task through the benchmark adapter
     cmds:
       - task: build-image
-      - docker run --rm
-        -v $(pwd)/agon_bench/tasks/smoke:/tasks/smoke
-        -v $(pwd)/agon_bench/results:/results
-        -v $(pwd)/agon_bench/transcripts:/transcripts
-        agon-bench --task smoke
-  test:
-    desc: Run Python tests (smoke task verifier)
-    cmds:
-      - cd agon_bench/tasks/smoke && TEST_DIR=tests python3 -m pytest tests/test_outputs.py -v
+      - ./scripts/run-smoke.sh
   test-solution:
-    desc: Run solution.sh then verify with pytest (validates smoke task tests)
+    desc: Verify smoke task reference solution + pytest
     cmds:
-      - cd agon_bench/tasks/smoke && bash solution.sh && TEST_DIR=tests python3 -m pytest tests/test_outputs.py -v
-  fmt:
-    desc: Format Python and Bash files
-    cmds:
-      - ruff format agon_bench/ 2>/dev/null || echo "ruff not installed, skipping Python format"
-      - shfmt -w agon_bench/**/*.sh 2>/dev/null || echo "shfmt not installed, skipping shell format"
-  lint:
-    desc: Lint Python files
-    cmds:
-      - ruff check agon_bench/ 2>/dev/null || echo "ruff not installed, skipping lint"
+      - task: build-image
+      - ./scripts/test-solution.sh
   results:
     desc: Show latest benchmark results
     cmds:
-      - echo "=== Results directory ==="
-      - ls -la agon_bench/results/
-      - echo ""
-      - echo "=== Latest run ==="
-      - cat agon_bench/results/results.jsonl 2>/dev/null | tail -1 | python3 -m json.tool 2>/dev/null || echo "No results yet"
+      - ./scripts/results.sh
   shell:
-    desc: Open an interactive shell in the benchmark container
+    desc: Open interactive shell in the benchmark container
     cmds:
       - task: build-image
-      - docker run --rm -it
-        -v $(pwd)/agon_bench/tasks/smoke:/tasks/smoke
-        --entrypoint /bin/bash
-        agon-bench
-  clean:
-    desc: Clean up Docker images and results
+      - ./scripts/shell.sh
+  fmt:
+    desc: Format Python and shell files
     cmds:
-      - docker rmi agon-bench 2>/dev/null || true
-      - rm -rf agon_bench/results/*
-      - rm -rf agon_bench/transcripts/*
-      - touch agon_bench/results/.gitkeep agon_bench/transcripts/.gitkeep
+      - ./scripts/fmt.sh
+  lint:
+    desc: Lint Python files
+    cmds:
+      - ./scripts/lint.sh
+  clean:
+    desc: Remove Docker image and clear results
+    cmds:
+      - ./scripts/clean.sh

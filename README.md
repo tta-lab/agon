@@ -17,10 +17,10 @@ Taskfile.yaml        # Build, run, and test commands
 ```
 ## Requirements
 ### Host Tools
-- [Task](https://taskfile.dev) — task runner (`task` CLI)
-- Docker — containerized execution
-- Go 1.26+ — building lenos from source inside the Docker image
-- Python 3.12+ — runner and test infrastructure (`python3`, `pip3`)
+- **Docker** — containerized execution
+- **Go 1.26+** — building lenos from source inside the Docker image
+- **Python 3.12+** — runner and test infrastructure (`python3`, `pip3`)
+- `make` (or `bash`) — primary local interface; `task` is optional
 - `ruff` (optional) — Python formatting and linting
 - `shfmt` (optional) — shell script formatting
 ### Secrets and Environment Variables
@@ -76,22 +76,28 @@ Pull the pre-built image instead of building locally:
 docker pull ghcr.io/tta-lab/agon-runner:latest
 ```
 ## Quickstart
+Use **`make`** or **`./scripts/*.sh`** as the primary local interface. `task` is available but optional.
 ```bash
-# 1. Install Python deps (inside Docker this is automatic)
-pip3 install --break-system-packages pyyaml
-# 2. Build the benchmark image
-task build-image
-# 3. Run the smoke task (requires provider env vars)
-task run-smoke
-# 4. Run smoke task tests independently
-task test
-# 5. Verify solution + tests (no agent needed)
-task test-solution
-# 6. View results
-task results
-# 7. Interactive shell in container
-task shell
+# 1. Build the benchmark image
+make build-image
+# 2. Run the smoke task (requires provider env vars)
+export LENOS_PROVIDER=anthropic
+export LENOS_PROVIDER_KEY=sk-ant-...
+export LENOS_MODEL=claude-sonnet-4
+make run-smoke
+# 3. Verify reference solution (no keys needed)
+make test-solution
+# 4. View results
+make results
+# 5. Interactive shell in the container
+make shell
+# 6. Format and lint
+make fmt
+make lint
+# 7. Clean up
+make clean
 ```
+All commands delegate to scripts in `scripts/`. Run `make help` to see all targets.
 ## Adding New Terminal-Bench Tasks
 1. Create a directory under `agon_bench/tasks/<task-name>/`
 2. Add the required files:
