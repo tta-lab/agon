@@ -47,6 +47,8 @@ RUN mkdir -p /tmp/lenos && \
     rm -rf /tmp/lenos
 # Create working directories
 RUN mkdir -p /workspace /results /transcripts
+# Runner adapter
+COPY agon_bench/runner/runner.py /usr/local/bin/agon-runner.py
 # Runner entrypoint
 COPY agon_bench/runner/entrypoint.sh /usr/local/bin/agon-run
 RUN chmod +x /usr/local/bin/agon-run
