@@ -2,11 +2,16 @@
 version: "3"
 tasks:
   build-image:
-    desc: Build the agon benchmark Docker image
+    desc: Build the agon benchmark Docker image locally
     cmds:
       - docker build -t agon-bench -f agon_bench/runner/Dockerfile .
+  pull-image:
+    desc: Pull the pre-built image from GHCR
+    cmds:
+      - docker pull ghcr.io/tta-lab/agon-runner:latest
+      - docker tag ghcr.io/tta-lab/agon-runner:latest agon-bench
   run-smoke:
-    desc: Build image, run the smoke task through the benchmark adapter
+    desc: Build (or pull) image, run the smoke task through the benchmark adapter
     cmds:
       - task: build-image
       - docker run --rm

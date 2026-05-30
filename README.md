@@ -51,6 +51,18 @@ docker run --rm \
   -v $(which lenos):/usr/local/bin/lenos \
   agon-bench --task smoke
 ```
+## CI and Image Publishing
+Pre-built images are published to **GHCR** on every push to main and on tags:
+```
+ghcr.io/tta-lab/agon-runner:latest      # main branch
+ghcr.io/tta-lab/agon-runner:sha-<sha>   # immutable per-commit
+ghcr.io/tta-lab/agon-runner:v1.0.0      # semver tag
+```
+Pull the pre-built image instead of building locally:
+```bash
+docker pull ghcr.io/tta-lab/agon-runner:latest
+```
+The CI workflow (`.github/workflows/build-image.yml`) builds on PRs (dry-run, no push) and publishes on main/tags with smoke verification of the published image.
 ## Quickstart
 ```bash
 # 1. Install Python deps (inside Docker this is automatic)
