@@ -16,8 +16,10 @@ FROM ghcr.io/laude-institute/t-bench/ubuntu-24-04:20250624
 ARG TEMENOS_VERSION=v0.9.0
 ARG LENOS_REF=main
 ARG GO_VERSION=1.26.2
-# Additional tools: Python for runner (tmux and asciinema come from the base image)
+# Additional tools: Python for runner, bubblewrap for temenos sandbox
+# (tmux and asciinema come from the base image)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    bubblewrap \
     curl \
     git \
     python3 \
