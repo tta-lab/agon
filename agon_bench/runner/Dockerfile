@@ -1,19 +1,21 @@
 # Agon benchmark image — Lenos + Temenos for Terminal-Bench tasks
 #
-# Binary acquisition modes:
-#   1. Pinned release download (default) — downloads from GitHub releases
-#   2. Local mount — mount a local binary at /usr/local/bin/lenos to override
+# Binary acquisition:
+#   lenos   — built from source via go install (no GitHub release artifacts)
+#   temenos — downloaded from pinned GitHub release
 #
 # Build args control version pinning:
 #   TEMENOS_VERSION  — temenos release tag (default: latest known working)
-#   LENOS_VERSION    — lenos release tag (default: latest known working)
+#   LENOS_VERSION    — lenos git ref (tag or SHA) for go install
+#   GO_VERSION       — Go toolchain version for building lenos
 #
 # Provider secrets are NEVER baked into this image.
 # Pass them as environment variables at runtime.
 FROM ubuntu:24.04
 # Build args for version pinning
 ARG TEMENOS_VERSION=v0.9.0
-ARG LENOS_VERSION=v1.3.0
+ARG LENOS_VERSION=v1.3.0+0.55.0
+ARG GO_VERSION=1.26.2
 # Base tools: tmux/asciinema (required by Terminal-Bench), Python for runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
@@ -26,6 +28,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tmux \
     asciinema \
     && rm -rf /var/lib/apt/lists/*
+# Install Go toolchain for building lenos
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
+        -o /tmp/go.tar.gz && \
+    tar -C /usr/local -xzf /tmp/go.tar.gz && \
+    rm /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:${PATH}"
 # Install Python deps for the runner
 COPY agon_bench/runner/requirements.txt /tmp/requirements.txt
 RUN pip3 install --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
@@ -37,14 +45,10 @@ RUN mkdir -p /tmp/temenos && \
     mv /tmp/temenos/temenos /usr/local/bin/temenos && \
     chmod +x /usr/local/bin/temenos && \
     rm -rf /tmp/temenos
-# Download and install lenos (pinned release binary) — can be overridden via volume mount
-RUN mkdir -p /tmp/lenos && \
-    curl -fsSL "https://github.com/tta-lab/lenos/releases/download/${LENOS_VERSION}/lenos_Linux_x86_64.tar.gz" \
-        -o /tmp/lenos/lenos.tar.gz && \
-    tar -xzf /tmp/lenos/lenos.tar.gz -C /tmp/lenos && \
-    mv /tmp/lenos/lenos /usr/local/bin/lenos && \
-    chmod +x /usr/local/bin/lenos && \
-    rm -rf /tmp/lenos
+# Build and install lenos from source (no GitHub release artifacts)
+RUN go install "github.com/tta-lab/lenos@${LENOS_VERSION}" && \
+    cp "$(go env GOPATH)/bin/lenos" /usr/local/bin/lenos && \
+    chmod +x /usr/local/bin/lenos
 # Create working directories
 RUN mkdir -p /workspace /results /transcripts
 # Runner adapter
