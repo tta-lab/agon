@@ -51,6 +51,8 @@ RUN git clone --depth 1 --branch "${LENOS_REF}" https://github.com/tta-lab/lenos
     rm -rf /tmp/lenos-src
 # Create working directories
 RUN mkdir -p /workspace /results /transcripts
+# Temenos sandbox config for Docker
+COPY agon_bench/runner/temenos-config.toml /root/.config/temenos/config.toml
 # Runner adapter
 COPY agon_bench/runner/runner.py /usr/local/bin/agon-runner.py
 # Runner entrypoint
