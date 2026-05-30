@@ -52,13 +52,15 @@ jobs:
           file: agon_bench/runner/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           load: ${{ github.event_name == 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            agon-bench:ci-${{ github.run_id }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Binary smoke check
         run: |
-          docker run --rm --entrypoint /bin/bash ${{ steps.meta.outputs.tags }} -c '
+          docker run --rm --entrypoint /bin/bash agon-bench:ci-${{ github.run_id }} -c '
             set -euo pipefail
             echo "=== Lenos version ==="
             lenos --version
