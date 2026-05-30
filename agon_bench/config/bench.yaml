@@ -1,0 +1,11 @@
+# Agon benchmark configuration
+# Model/provider config is passed via environment variables, never stored here.
+# Default model to use when not overridden
+model: claude-sonnet-4
+# Timeout for agent execution (seconds)
+agent_timeout_sec: 300
+# Timeout for test execution (seconds)
+test_timeout_sec: 60
+# Output paths (relative to repo root)
+results_dir: agon_bench/results
+transcripts_dir: agon_bench/transcripts

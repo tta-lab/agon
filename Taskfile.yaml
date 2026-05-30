@@ -1,0 +1,38 @@
+# https://taskfile.dev
+version: "3"
+tasks:
+  build-image:
+    desc: Build the agon benchmark Docker image
+    cmds:
+      - docker build -t agon-bench -f agon_bench/runner/Dockerfile .
+  run-smoke:
+    desc: Run the smoke task through the benchmark
+    cmds:
+      - task: build-image
+      - docker run --rm -v $(pwd)/agon_bench/results:/results -v $(pwd)/agon_bench/transcripts:/transcripts agon-bench run --task smoke
+  test:
+    desc: Run Python tests
+    cmds:
+      - cd agon_bench && python -m pytest tasks/smoke/tests/ -v
+  fmt:
+    desc: Format Python and Bash files
+    cmds:
+      - ruff format agon_bench/
+      - shfmt -w agon_bench/**/*.sh
+  lint:
+    desc: Lint Python files
+    cmds:
+      - ruff check agon_bench/
+  results:
+    desc: Show latest benchmark results
+    cmds:
+      - ls -la agon_bench/results/
+      - echo ""
+      - cat agon_bench/results/latest.jsonl 2>/dev/null || echo "No results yet"
+  clean:
+    desc: Clean up Docker images and results
+    cmds:
+      - docker rmi agon-bench 2>/dev/null || true
+      - rm -rf agon_bench/results/*
+      - rm -rf agon_bench/transcripts/*
+      - touch agon_bench/results/.gitkeep agon_bench/transcripts/.gitkeep

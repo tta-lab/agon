@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Agon benchmark outputs
+agon_bench/results/*
+agon_bench/transcripts/*
+!agon_bench/results/.gitkeep
+!agon_bench/transcripts/.gitkeep
