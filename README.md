@@ -54,6 +54,17 @@ docker run --rm \
   agon-bench --task smoke
 ```
 ## CI and Image Publishing
+The CI workflow (`.github/workflows/build-image.yml`) runs two verification layers:
+### Layer 1: No-key (always runs)
+- **Image build** — PRs build-check (no push), main/tags push to GHCR
+- **Binary smoke check** — verifies `lenos --version`, `temenos --version`, Python version, and runner scripts are present in the built image
+- **Smoke task verifier** — runs `solution.sh` then `pytest` against the smoke task test suite; confirms the task package is intact and tests pass against the reference solution
+No provider credentials required for Layer 1.
+### Layer 2: Secret-gated (requires provider keys)
+- **Agent benchmark** — `lenos run` solves Terminal-Bench tasks with a real model
+- Only executes when `LENOS_PROVIDER_KEY` is set in the environment
+- Not part of the standard CI pipeline; run manually or via separate workflow
+### GHCR Image Tags
 Pre-built images are published to **GHCR** on every push to main and on tags:
 ```
 ghcr.io/tta-lab/agon-runner:latest      # main branch
@@ -64,7 +75,6 @@ Pull the pre-built image instead of building locally:
 ```bash
 docker pull ghcr.io/tta-lab/agon-runner:latest
 ```
-The CI workflow (`.github/workflows/build-image.yml`) builds on PRs (dry-run, no push) and publishes on main/tags with smoke verification of the published image.
 ## Quickstart
 ```bash
 # 1. Install Python deps (inside Docker this is automatic)
