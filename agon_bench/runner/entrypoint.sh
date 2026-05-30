@@ -37,6 +37,8 @@ if [[ ! -d "$TASK_PATH" ]]; then
     echo "ERROR: task directory not found: ${TASK_PATH}"
     exit 1
 fi
+# Prevent lenos from trying to write to the read-only mounted config dir
+export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1
 echo "=== Agon Runner ==="
 echo "Task:      ${TASK_NAME}"
 echo "Task dir:  ${TASK_PATH}"

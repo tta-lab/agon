@@ -98,14 +98,11 @@ def build_result_record(
         },
         "agent": {
             "name": "lenos",
-            "model": model or os.environ.get("LENOS_MODEL", "unknown"),
+            "model": model or "",
             "version": os.environ.get("LENOS_VERSION", ""),
             "exit_code": agent_result["exit_code"],
             "duration_sec": agent_result["duration_sec"],
             "timed_out": agent_result["timed_out"],
-        },
-        "provider": {
-            "name": os.environ.get("LENOS_PROVIDER", ""),
         },
     }
 def run(task_dir: str, results_dir: str, transcripts_dir: str, model: str | None = None):
