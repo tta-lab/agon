@@ -183,6 +183,7 @@ class LenosAgent(BaseInstalledAgent):
         context.n_input_tokens = summary["input_tokens"]
         context.n_cache_tokens = summary["input_cache_hit_tokens"]
         context.n_output_tokens = summary["output_tokens"]
+        context.cost_usd = summary.get("cost_usd")
         context.metadata = {
             **(context.metadata or {}),
             "lenos_usage": summary,

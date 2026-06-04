@@ -29,6 +29,7 @@ class LenosAdapterTest(unittest.TestCase):
             n_input_tokens=None,
             n_cache_tokens=None,
             n_output_tokens=None,
+            cost_usd=None,
             metadata={"existing": "value"},
         )
         summary = {
@@ -43,6 +44,7 @@ class LenosAdapterTest(unittest.TestCase):
         self.assertEqual(context.n_input_tokens, 30)
         self.assertEqual(context.n_cache_tokens, 20)
         self.assertEqual(context.n_output_tokens, 5)
+        self.assertEqual(context.cost_usd, 0.00123)
         self.assertEqual(
             context.metadata,
             {
