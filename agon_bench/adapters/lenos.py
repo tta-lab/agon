@@ -21,7 +21,10 @@ from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 
 
-LENOS_VERSION = os.environ.get("LENOS_VERSION", "latest")
+DEFAULT_LENOS_VERSION = "v1.4.3+0.74.1"
+DEEPSEEK_REASONING_EFFORT = "xhigh"
+
+LENOS_VERSION = os.environ.get("LENOS_VERSION", DEFAULT_LENOS_VERSION)
 LENOS_RELEASE_BASE = "https://github.com/tta-lab/lenos/releases"
 if LENOS_VERSION == "latest":
     LENOS_DOWNLOAD_URL = f"{LENOS_RELEASE_BASE}/latest/download"
@@ -82,6 +85,14 @@ class LenosAgent(BaseInstalledAgent):
             if line:
                 return line.removeprefix("lenos ").split()[0]
         return text
+
+    @staticmethod
+    def _reasoning_flag_for_model(model_name: str | None) -> str:
+        if not model_name:
+            return ""
+        if not model_name.split("/", 1)[-1].startswith("deepseek"):
+            return ""
+        return f" --reasoning-effort {shlex.quote(DEEPSEEK_REASONING_EFFORT)}"
 
     async def install(self, environment: BaseEnvironment) -> None:
         # Install system dependencies for sandboxing
@@ -146,6 +157,7 @@ class LenosAgent(BaseInstalledAgent):
         model_flag = ""
         if self.model_name:
             model_flag = f" -m {shlex.quote(self.model_name)}"
+        reasoning_flag = self._reasoning_flag_for_model(self.model_name)
 
         cli_flags = self.build_cli_flags()
         extra_flags = f" {cli_flags}" if cli_flags else ""
@@ -153,7 +165,7 @@ class LenosAgent(BaseInstalledAgent):
         run_cmd = (
             "set -o pipefail; "
             "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
-            f"lenos run{model_flag}{extra_flags} "
+            f"lenos run{model_flag}{reasoning_flag}{extra_flags} "
             f"--usage-json {shlex.quote(USAGE_SUMMARY_PATH)} "
             f"{escaped_instruction} "
             "2>&1 | tee /logs/agent/lenos.txt"

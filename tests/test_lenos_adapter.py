@@ -3,13 +3,16 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from agon_bench.adapters.lenos import LenosAgent
+from agon_bench.adapters.lenos import DEFAULT_LENOS_VERSION, LenosAgent
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class LenosAdapterTest(unittest.TestCase):
+    def test_default_lenos_version_uses_stable_release(self):
+        self.assertEqual(DEFAULT_LENOS_VERSION, "v1.4.3+0.74.1")
+
     def test_minimal_lenos_config_does_not_install_post_step_hook(self):
         config = json.loads((ROOT / "agon_bench/lenos/config.json").read_text())
 
@@ -23,6 +26,20 @@ class LenosAdapterTest(unittest.TestCase):
         self.assertNotIn("agon-lenos-post-step", source)
         self.assertNotIn("USAGE_HOOK_SCRIPT", source)
         self.assertNotIn("USAGE_SUMMARY_CMD", source)
+
+    def test_deepseek_models_use_xhigh_reasoning(self):
+        self.assertEqual(
+            LenosAgent._reasoning_flag_for_model("deepseek-v4-flash"),
+            " --reasoning-effort xhigh",
+        )
+        self.assertEqual(
+            LenosAgent._reasoning_flag_for_model("deepseek/deepseek-v4-pro"),
+            " --reasoning-effort xhigh",
+        )
+
+    def test_non_deepseek_models_do_not_force_reasoning(self):
+        self.assertEqual(LenosAgent._reasoning_flag_for_model("gpt-5.4"), "")
+        self.assertEqual(LenosAgent._reasoning_flag_for_model(None), "")
 
     def test_apply_usage_summary_preserves_lenos_cost(self):
         context = SimpleNamespace(

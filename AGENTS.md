@@ -40,7 +40,7 @@ make lint
 ## Adapter — install() lifecycle
 
 1. Install `bubblewrap`, `curl`, and `python3`
-2. Download lenos binary from GitHub releases, extract to `/usr/local/bin/lenos`
+2. Download Lenos `v1.4.3+0.74.1` by default, extract to `/usr/local/bin/lenos`
 3. Write temenos config to `~/.config/temenos/config.toml`
 4. Ensure lenos config dirs exist (`~/.config/lenos`, `~/.local/share/lenos`)
 
@@ -90,6 +90,7 @@ harbor run ... -m deepseek-v4-pro  # DeepSeek
 
 Model name is passed as-is to `lenos run -m <model>`. Lenos resolves it
 against its known providers from the mounted config.
+DeepSeek models are run with `--reasoning-effort xhigh`.
 
 ## Harbor Integration
 

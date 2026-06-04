@@ -65,7 +65,7 @@ Agon mounts two Lenos paths into the task container:
 
 Never add `/root/.local/share/lenos` to the Temenos sandbox `allow_read`. Do not pass provider secret env vars such as `OPENAI_*`, `ANTHROPIC_*`, `DEEPSEEK_*`, or `GOOGLE_*` into the Temenos sandbox without explicit review.
 
-The Agon adapter passes `--usage-json /logs/agent/usage-summary.json` to `lenos run` and parses that final summary into Harbor context metadata. Keep `python3` available as a general task-solving utility, but do not reintroduce a Python `post_step` hook or Python aggregation path for metrics.
+The Agon adapter installs Lenos `v1.4.3+0.74.1` by default, passes `--usage-json /logs/agent/usage-summary.json` to `lenos run`, and parses that final summary into Harbor context metadata. DeepSeek models run with `--reasoning-effort xhigh`. Keep `python3` available as a general task-solving utility, but do not reintroduce a Python `post_step` hook or Python aggregation path for metrics.
 
 ## Verification
 
