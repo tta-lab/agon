@@ -1,4 +1,7 @@
 {
+  "hooks": {
+    "post_step": "python3 /usr/local/bin/agon-lenos-post-step"
+  },
   "options": {
     "disable_notifications": true,
     "disable_provider_auto_update": true,
