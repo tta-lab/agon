@@ -35,7 +35,7 @@ harbor run -d "terminal-bench-2.0==head" \
   --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 
 # Or use make (convenience wrapper)
-make harbor-run MODEL=deepseek-v4-pro TASK=hello-world
+make harbor-run MODEL=deepseek-v4-pro TASK=terminal-bench/hello-world
 ```
 
 ## How it works
