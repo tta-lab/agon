@@ -177,7 +177,7 @@ class LenosAgent(BaseInstalledAgent):
             'rm "/tmp/${ARCHIVE}" && '
             "lenos --version"
         )
-        await self.exec_as_agent(environment, command=download_cmd)
+        await self.exec_as_root(environment, command=download_cmd)
 
         # Write temenos config (lenos loads this at first sandbox use)
         await self.exec_as_agent(
@@ -196,7 +196,7 @@ class LenosAgent(BaseInstalledAgent):
             command="mkdir -p ~/.config/lenos ~/.local/share/lenos",
         )
 
-        await self.exec_as_agent(
+        await self.exec_as_root(
             environment,
             command=(
                 "cat > /usr/local/bin/agon-lenos-post-step << 'PYEOF'\n"
