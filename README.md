@@ -48,7 +48,7 @@ make harbor-run MODEL=deepseek-v4-pro TASK=hello-world
    container — API keys stay out of the repo and are never baked into images
    or env vars
 4. Harbor passes the task instruction to the adapter's `run()` method
-5. `lenos run --quiet -m <model> <instruction>` executes inside the container
+5. `lenos run -m <model> <instruction>` executes inside the container
 6. Harbor runs the task's test script and records the result
 
 ## Adding the adapter to your project

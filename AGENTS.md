@@ -68,8 +68,16 @@ to write to a potentially read-only mount or unavailable network.
 ## Temenos Sandbox
 
 Lenos uses the temenos SDK directly (no daemon). The adapter writes a minimal
-temenos config that allows read access to lenos config dirs, binary paths, and
-the workspace. Write access is limited to `/app`, `/workspace`, and `/tmp`.
+temenos config that allows read access to binary paths, the workspace, `/tmp`,
+and the non-secret `/root/.config/lenos` config. Write access is limited to
+`/app`, `/workspace`, and `/tmp`.
+
+Never add `/root/.local/share/lenos` to Temenos `allow_read`. That directory is
+mounted for the Lenos process so it can load provider credentials, but it
+contains host secrets and must not be readable from the task-solving sandbox.
+Do not allow provider secret env vars such as `OPENAI_*`, `ANTHROPIC_*`,
+`DEEPSEEK_*`, or `GOOGLE_*` in the Temenos sandbox unless there is a reviewed,
+explicit need.
 
 ## Models
 
