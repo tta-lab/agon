@@ -1,1 +1,0 @@
-FROM agon-bench:latest

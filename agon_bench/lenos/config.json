@@ -1,0 +1,10 @@
+{
+  "options": {
+    "disable_notifications": true,
+    "disable_provider_auto_update": true,
+    "disable_metrics": true,
+    "tui": {
+      "show_thinking": false
+    }
+  }
+}

@@ -221,3 +221,5 @@ agon_bench/results/*
 agon_bench/transcripts/*
 !agon_bench/results/.gitkeep
 !agon_bench/transcripts/.gitkeep
+.venv/
+jobs/
