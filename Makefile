@@ -3,7 +3,7 @@
 # The only Agon-specific code is the Lenos agent adapter.
 .PHONY: harbor-run fmt lint help venv
 
-HARBOR ?= .venv/bin/harbor
+HARBOR ?= $(if $(wildcard .venv/bin/harbor),.venv/bin/harbor,harbor)
 AGENT_PATH = agon_bench.adapters.lenos:LenosAgent
 DATASET ?= terminal-bench-2.0==head
 LENOS_CONFIG = $(CURDIR)/agon_bench/lenos/config.json
