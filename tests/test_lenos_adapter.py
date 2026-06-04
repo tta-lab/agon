@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from agon_bench.adapters import lenos
 from agon_bench.adapters.lenos import DEFAULT_LENOS_VERSION, LenosAgent
 
 
@@ -40,6 +41,18 @@ class LenosAdapterTest(unittest.TestCase):
     def test_non_deepseek_models_do_not_force_reasoning(self):
         self.assertEqual(LenosAgent._reasoning_flag_for_model("gpt-5.4"), "")
         self.assertEqual(LenosAgent._reasoning_flag_for_model(None), "")
+
+    def test_explicit_reasoning_effort_applies_to_any_model(self):
+        original = lenos.LENOS_REASONING_EFFORT
+        try:
+            lenos.LENOS_REASONING_EFFORT = "xhigh"
+
+            self.assertEqual(
+                LenosAgent._reasoning_flag_for_model("gpt-5.4"),
+                " --reasoning-effort xhigh",
+            )
+        finally:
+            lenos.LENOS_REASONING_EFFORT = original
 
     def test_apply_usage_summary_preserves_lenos_cost(self):
         context = SimpleNamespace(

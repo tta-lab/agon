@@ -4,12 +4,23 @@ Agon is a Terminal-Bench 2.0 arena for measuring Lenos against real terminal
 tasks, powered by the [Harbor](https://github.com/laude-institute/harbor)
 framework.
 
+The purpose is not only to produce a leaderboard number. The working goal is to
+run TB2 tasks one by one, learn where Lenos wastes time or fails, and keep a
+clear trail from task result to model behavior to possible Lenos improvement.
+Official verifier results stay official; local judgement and investigation notes
+are recorded separately.
+
 ## Architecture
 
 ```
 agon_bench/
-└── adapters/
-    └── lenos.py          # Harbor BaseInstalledAgent for Lenos
+├── adapters/
+│   └── lenos.py          # Harbor BaseInstalledAgent for Lenos
+├── findings/             # Markdown notes for Lenos improvement leads
+└── results/
+    ├── tb2-scoreboard.html
+    ├── tb2-scoreboard.json
+    └── tb2-scoreboard-notes.json
 ```
 
 A single Python file. Harbor handles everything else — container orchestration,
@@ -23,24 +34,59 @@ calls `run(instruction)`, then runs the task's test suite.
 
 ```bash
 # Run Lenos against a single TB 2.0 task
-harbor run -d "terminal-bench-2.0==head" \
+harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
-  -m deepseek-v4-pro \
+  -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
-  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]" \
+  -y
 
 # Or use make convenience wrapper
-make harbor-run MODEL=deepseek-v4-pro TASK=terminal-bench/hello-world
+make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/hello-world
+
+# Local smoke mode used when API tier/speed makes official timing too tight
+make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/fix-git \
+  LENOS_REASONING_EFFORT=medium TIMEOUT_MULTIPLIER=1.5 N_CONCURRENT=1
+
+# Rebuild the local task dashboard from jobs/
+make scoreboard
 
 # Format and lint
 make fmt
 make lint
 ```
 
+## Evaluation Workflow
+
+Use Agon as a task-by-task lab before attempting full-suite or leaderboard runs.
+
+1. Pick a small task or a small batch from `terminal-bench@2.0`.
+2. Run with `make harbor-run`, normally `MODEL=deepseek-v4-flash`.
+3. Rebuild the local dashboard with `make scoreboard`.
+4. Inspect failed or near-passed runs through `jobs/<job>/<trial>/agent/lenos.txt`
+   and verifier output.
+5. If the run reveals a Lenos-side improvement lead, add a Markdown note under
+   `agon_bench/findings/` and link task, model, job, trial, official reward, and
+   local judgement.
+6. Keep running cases. Implement fixes later from the strongest repeated
+   findings.
+
+The local scoreboard is for smoke coverage and triage. It is not an official
+leaderboard submission. Manual labels such as `near_pass_95` may appear in
+`tb2-scoreboard-notes.json`, but they must not overwrite official `reward`,
+`classification`, or verifier data.
+
+Official leaderboard-style runs have stricter constraints:
+
+- use the official dataset and task set
+- do not use local timeout/resource relaxations
+- run the required number of trials
+- treat Harbor verifier reward as the score
+
 ## Adapter — install() lifecycle
 
 1. Install `bubblewrap`, `curl`, and `python3`
-2. Download Lenos `v1.4.3+0.74.1` by default, extract to `/usr/local/bin/lenos`
+2. Download Lenos from GitHub releases, extract to `/usr/local/bin/lenos`
 3. Write temenos config to `~/.config/temenos/config.toml`
 4. Ensure lenos config dirs exist (`~/.config/lenos`, `~/.local/share/lenos`)
 
@@ -79,32 +125,58 @@ Do not allow provider secret env vars such as `OPENAI_*`, `ANTHROPIC_*`,
 `DEEPSEEK_*`, or `GOOGLE_*` in the Temenos sandbox unless there is a reviewed,
 explicit need.
 
+When a task needs system tools such as TeX, compilers, language runtimes, or
+package managers, prefer recording missing sandbox paths as a finding before
+expanding the policy. The expected direction is broader read access to
+non-secret system install trees and narrow write access to task/cache paths, not
+secret mounts.
+
 ## Models
 
-Two primary models for benchmarking:
+Common models for local smoke runs:
 
 ```bash
-harbor run ... -m gpt-5.5       # OpenAI
-harbor run ... -m deepseek-v4-pro  # DeepSeek
+make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/fix-git
+make harbor-run MODEL=gpt-5.4 TASK=terminal-bench/headless-terminal
 ```
 
 Model name is passed as-is to `lenos run -m <model>`. Lenos resolves it
 against its known providers from the mounted config.
-DeepSeek models are run with `--reasoning-effort xhigh`.
+Set reasoning through `LENOS_REASONING_EFFORT=<level>` when needed. Use
+`medium` for cheaper smoke passes and higher efforts only when diagnosing a
+specific failure.
 
 ## Harbor Integration
 
 The adapter lives in this repo but is used via `--agent-import-path`:
 
 ```bash
-harbor run -d "terminal-bench-2.0==head" \
+harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
-  -m deepseek-v4-pro \
+  -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
-  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]" \
+  -y
 ```
 
 Copy just the `agon_bench/adapters/` directory to use the adapter from any project.
+
+## Findings and Scoreboard
+
+`jobs/` contains raw Harbor output and stays gitignored. The committed local
+record is split into:
+
+- `agon_bench/results/tb2-scoreboard.html` for the task dashboard
+- `agon_bench/results/tb2-scoreboard.json` for structured run data
+- `agon_bench/results/tb2-scoreboard-notes.json` for manual labels/notes
+- `agon_bench/findings/*.md` for improvement leads
+
+Add a finding when a run teaches something reusable, for example sandbox path
+gaps, tool-state issues, timeout behavior, metrics loss, provider/model
+compatibility, or repeated model failure patterns.
+
+Do not add secrets, API keys, or host Lenos local-share contents to findings,
+scoreboard notes, commits, or PR descriptions.
 
 ## Git Conventions
 

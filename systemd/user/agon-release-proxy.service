@@ -1,0 +1,13 @@
+[Unit]
+Description=Agon local GitHub release cache proxy
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/code/projects/tta-lab/agon
+ExecStart=/run/current-system/sw/bin/python3 %h/code/projects/tta-lab/agon/scripts/release_proxy.py --host 0.0.0.0 --port 8765
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

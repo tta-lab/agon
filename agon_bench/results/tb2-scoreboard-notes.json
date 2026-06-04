@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "job": "2026-06-04__19-40-39",
+      "trial": "overfull-hbox__dXEGGsn",
+      "status": "near_pass_95",
+      "note": "Manual review: LaTeX compiled and overfull hboxes were removed. Official verifier failed only because input.tex changed case-sensitive token Middle to Hub, while synonyms.txt only allows lowercase middle/hub."
+    }
+  ]
+}

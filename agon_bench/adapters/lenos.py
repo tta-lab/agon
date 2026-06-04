@@ -22,14 +22,26 @@ from harbor.models.agent.context import AgentContext
 
 
 DEFAULT_LENOS_VERSION = "v1.4.3+0.74.1"
+DEFAULT_ORGANON_VERSION = "latest"
 DEEPSEEK_REASONING_EFFORT = "xhigh"
+LENOS_REASONING_EFFORT = os.environ.get("LENOS_REASONING_EFFORT")
 
 LENOS_VERSION = os.environ.get("LENOS_VERSION", DEFAULT_LENOS_VERSION)
-LENOS_RELEASE_BASE = "https://github.com/tta-lab/lenos/releases"
+LENOS_RELEASE_BASE = os.environ.get(
+    "LENOS_RELEASE_BASE", "https://github.com/tta-lab/lenos/releases"
+)
+ORGANON_VERSION = os.environ.get("ORGANON_VERSION", DEFAULT_ORGANON_VERSION)
+ORGANON_RELEASE_BASE = os.environ.get(
+    "ORGANON_RELEASE_BASE", "https://github.com/tta-lab/organon/releases"
+)
 if LENOS_VERSION == "latest":
     LENOS_DOWNLOAD_URL = f"{LENOS_RELEASE_BASE}/latest/download"
 else:
     LENOS_DOWNLOAD_URL = f"{LENOS_RELEASE_BASE}/download/{LENOS_VERSION}"
+if ORGANON_VERSION == "latest":
+    ORGANON_DOWNLOAD_URL = f"{ORGANON_RELEASE_BASE}/latest/download"
+else:
+    ORGANON_DOWNLOAD_URL = f"{ORGANON_RELEASE_BASE}/download/{ORGANON_VERSION}"
 
 TEMENOS_CONFIG = """\
 # temenos config for Harbor Lenos agent
@@ -60,11 +72,12 @@ class LenosAgent(BaseInstalledAgent):
       ~/.local/share/lenos         → provider secrets and registry cache
 
     Run with:
-      harbor run -d "terminal-bench-2.0==head" \\
+      harbor run -d "terminal-bench@2.0" \\
         --agent-import-path agon_bench.adapters.lenos:LenosAgent \\
-        -m deepseek-v4-pro \\
+        -m deepseek-v4-flash \\
         -t terminal-bench/hello-world \\
-        --mounts "[{\\"type\\":\\"bind\\",\\"source\\":\\"${PWD}/agon_bench/lenos/config.json\\",\\"target\\":\\"/root/.config/lenos/config.json\\",\\"read_only\\":true},{\\"type\\":\\"bind\\",\\"source\\":\\"${HOME}/.local/share/lenos\\",\\"target\\":\\"/root/.local/share/lenos\\",\\"read_only\\":true}]"
+        --mounts "[{\\"type\\":\\"bind\\",\\"source\\":\\"${PWD}/agon_bench/lenos/config.json\\",\\"target\\":\\"/root/.config/lenos/config.json\\",\\"read_only\\":true},{\\"type\\":\\"bind\\",\\"source\\":\\"${HOME}/.local/share/lenos\\",\\"target\\":\\"/root/.local/share/lenos\\",\\"read_only\\":true}]" \\
+        -y
     """
 
     CLI_FLAGS = [
@@ -88,6 +101,8 @@ class LenosAgent(BaseInstalledAgent):
 
     @staticmethod
     def _reasoning_flag_for_model(model_name: str | None) -> str:
+        if LENOS_REASONING_EFFORT:
+            return f" --reasoning-effort {shlex.quote(LENOS_REASONING_EFFORT)}"
         if not model_name:
             return ""
         if not model_name.split("/", 1)[-1].startswith("deepseek"):
@@ -110,7 +125,7 @@ class LenosAgent(BaseInstalledAgent):
             env={"DEBIAN_FRONTEND": "noninteractive"},
         )
 
-        # Detect architecture and download lenos binary
+        # Detect architecture and download lenos binary.
         download_cmd = (
             "ARCH=$(uname -m); "
             'case "$ARCH" in '
@@ -128,6 +143,28 @@ class LenosAgent(BaseInstalledAgent):
             "lenos --version"
         )
         await self.exec_as_root(environment, command=download_cmd)
+
+        organon_cmd = (
+            "ARCH=$(uname -m); "
+            'case "$ARCH" in '
+            '  x86_64|amd64) GOARCH="x86_64" ;; '
+            '  arm64|aarch64) GOARCH="arm64" ;; '
+            "  *) echo 'ERROR: unsupported arch' >&2; exit 1 ;; "
+            "esac; "
+            f'ARCHIVE="organon_Linux_${{GOARCH}}.tar.gz"; '
+            f'curl -fsSL "{ORGANON_DOWNLOAD_URL}/${{ARCHIVE}}" '
+            f'  -o "/tmp/${{ARCHIVE}}" && '
+            'tar -xzf "/tmp/${ARCHIVE}" -C /tmp && '
+            "for bin in src web skill; do "
+            '  test -f "/tmp/${bin}" || '
+            '    { echo "ERROR: ${bin} missing from organon archive" >&2; exit 1; }; '
+            '  mv "/tmp/${bin}" "/usr/local/bin/${bin}"; '
+            '  chmod +x "/usr/local/bin/${bin}"; '
+            "done && "
+            'rm "/tmp/${ARCHIVE}" && '
+            "command -v src web skill"
+        )
+        await self.exec_as_root(environment, command=organon_cmd)
 
         # Write temenos config (lenos loads this at first sandbox use)
         await self.exec_as_agent(
