@@ -9,9 +9,9 @@ Mount your host lenos config into the container:
 `~/.local/share/lenos/config.json` contains host provider secrets; do not read it.
 """
 
+import json
 import os
 import shlex
-import json
 
 from harbor.agents.installed.base import (
     BaseInstalledAgent,
@@ -34,13 +34,11 @@ TEMENOS_CONFIG = """\
 allow_env = [
   "PATH", "HOME", "USER", "SHELL",
   "LENOS_*",
-  "OPENAI_*", "ANTHROPIC_*", "DEEPSEEK_*", "GOOGLE_*",
 ]
 allow_read = [
   "/usr/local/bin", "/usr/bin", "/bin",
   "/app", "/workspace",
   "/root/.config/lenos",
-  "/root/.local/share/lenos",
   "/tmp",
 ]
 allow_write = [
@@ -223,14 +221,16 @@ class LenosAgent(BaseInstalledAgent):
         cli_flags = self.build_cli_flags()
         extra_flags = f" {cli_flags}" if cli_flags else ""
 
+        run_cmd = (
+            "set -o pipefail; "
+            "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
+            f"lenos run{model_flag}{extra_flags} "
+            f"{escaped_instruction} "
+            "2>&1 | tee /logs/agent/lenos.txt"
+        )
         await self.exec_as_agent(
             environment,
-            command=(
-                "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
-                f"lenos run{model_flag}{extra_flags} "
-                f"{escaped_instruction} "
-                "2>&1 | tee /logs/agent/lenos.txt"
-            ),
+            command=f"bash -lc {shlex.quote(run_cmd)}",
         )
 
         result = await self.exec_as_agent(environment, command=USAGE_SUMMARY_CMD)
