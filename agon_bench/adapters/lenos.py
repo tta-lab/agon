@@ -46,66 +46,7 @@ allow_write = [
 ]
 """
 
-USAGE_HOOK_SCRIPT = """\
-#!/usr/bin/env python3
-import pathlib
-import sys
-
-payload = sys.stdin.read().strip()
-if not payload:
-    raise SystemExit(0)
-
-log_dir = pathlib.Path("/logs/agent")
-log_dir.mkdir(parents=True, exist_ok=True)
-with (log_dir / "usage.jsonl").open("a", encoding="utf-8") as f:
-    f.write(payload)
-    f.write("\\n")
-"""
-
-USAGE_SUMMARY_CMD = r"""sleep 1; python3 - <<'PY'
-import json
-import pathlib
-
-events = []
-path = pathlib.Path("/logs/agent/usage.jsonl")
-if path.exists():
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
-
-raw_input_tokens = sum(int(e.get("input_tokens") or 0) for e in events)
-cache_read_tokens = sum(int(e.get("cache_read_tokens") or 0) for e in events)
-cache_creation_tokens = sum(int(e.get("cache_creation_tokens") or 0) for e in events)
-output_tokens = sum(int(e.get("output_tokens") or 0) for e in events)
-reasoning_tokens = sum(int(e.get("reasoning_tokens") or 0) for e in events)
-provider_total_tokens = sum(int(e.get("total_tokens") or 0) for e in events)
-input_tokens = raw_input_tokens + cache_read_tokens
-input_cache_miss_tokens = raw_input_tokens + cache_creation_tokens
-
-summary = {
-    "post_step_events": len(events),
-    "input_tokens": input_tokens,
-    "raw_input_tokens": raw_input_tokens,
-    "input_cache_hit_tokens": cache_read_tokens,
-    "input_cache_miss_tokens": input_cache_miss_tokens,
-    "cache_creation_tokens": cache_creation_tokens,
-    "cache_read_tokens": cache_read_tokens,
-    "output_tokens": output_tokens,
-    "reasoning_tokens": reasoning_tokens,
-    "total_tokens": input_tokens + output_tokens,
-    "provider_total_tokens": provider_total_tokens,
-    "source": "/logs/agent/usage.jsonl",
-}
-
-out = pathlib.Path("/logs/agent/usage-summary.json")
-out.write_text(json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
-print(json.dumps(summary, sort_keys=True))
-PY"""
+USAGE_SUMMARY_PATH = "/logs/agent/usage-summary.json"
 
 
 class LenosAgent(BaseInstalledAgent):
@@ -194,16 +135,6 @@ class LenosAgent(BaseInstalledAgent):
             command="mkdir -p ~/.config/lenos ~/.local/share/lenos",
         )
 
-        await self.exec_as_root(
-            environment,
-            command=(
-                "cat > /usr/local/bin/agon-lenos-post-step << 'PYEOF'\n"
-                f"{USAGE_HOOK_SCRIPT}"
-                "PYEOF\n"
-                "chmod +x /usr/local/bin/agon-lenos-post-step"
-            ),
-        )
-
     @with_prompt_template
     async def run(
         self,
@@ -223,6 +154,7 @@ class LenosAgent(BaseInstalledAgent):
             "set -o pipefail; "
             "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
             f"lenos run{model_flag}{extra_flags} "
+            f"--usage-json {shlex.quote(USAGE_SUMMARY_PATH)} "
             f"{escaped_instruction} "
             "2>&1 | tee /logs/agent/lenos.txt"
         )
@@ -231,7 +163,10 @@ class LenosAgent(BaseInstalledAgent):
             command=f"bash -lc {shlex.quote(run_cmd)}",
         )
 
-        result = await self.exec_as_agent(environment, command=USAGE_SUMMARY_CMD)
+        result = await self.exec_as_agent(
+            environment,
+            command=f"cat {shlex.quote(USAGE_SUMMARY_PATH)}",
+        )
         self._populate_usage_context(context, result.stdout)
 
     def _populate_usage_context(self, context: AgentContext, stdout: str) -> None:
@@ -251,7 +186,7 @@ class LenosAgent(BaseInstalledAgent):
         context.metadata = {
             **(context.metadata or {}),
             "lenos_usage": summary,
-            "lenos_cost_status": "unavailable: post_step hook does not include cost_usd",
+            "lenos_cost_usd": summary.get("cost_usd"),
         }
 
     def populate_context_post_run(self, context: AgentContext) -> None:

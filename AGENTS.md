@@ -47,9 +47,10 @@ make lint
 ## Adapter — run() lifecycle
 
 1. Escape instruction, build model flag from `self.model_name`
-2. Execute: `lenos run -m <model> <instruction>`
+2. Execute: `lenos run -m <model> --usage-json /logs/agent/usage-summary.json <instruction>`
 3. Output teed to `/logs/agent/lenos.txt`
-4. Harbor runs the task's test suite after `run()` completes
+4. Parse Lenos' usage summary into Harbor context metadata
+5. Harbor runs the task's test suite after `run()` completes
 
 ## Credentials and Secrets
 
