@@ -31,9 +31,8 @@ verification, and result collection.
 harbor run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-pro \
-  --task-id hello-world \
-  -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \
-  -v ~/.local/share/lenos:/root/.local/share/lenos
+  -t terminal-bench/hello-world \
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 
 # Or use make (convenience wrapper)
 make harbor-run MODEL=deepseek-v4-pro TASK=hello-world
@@ -61,28 +60,26 @@ cp -r agon_bench/adapters /path/to/your/project/
 harbor run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-pro \
-  --task-id hello-world \
-  -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \
-  -v ~/.local/share/lenos:/root/.local/share/lenos
+  -t terminal-bench/hello-world \
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 ```
 
 ## Harbor integration for CI
 
 ```bash
-# Run against multiple tasks
+# Run matching tasks from the dataset
 harbor run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-pro \
-  --task-ids task1,task2,task3 \
-  -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \
-  -v ~/.local/share/lenos:/root/.local/share/lenos
+  --include-task-name "python-*" \
+  --n-tasks 3 \
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 
 # Run the full dataset
 harbor run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-pro \
-  -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \
-  -v ~/.local/share/lenos:/root/.local/share/lenos
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 ```
 
 ## Code conventions

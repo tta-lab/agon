@@ -2,8 +2,7 @@
 
 Mount your host lenos config into the container:
   harbor run ... \
-    -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \
-    -v ~/.local/share/lenos:/root/.local/share/lenos
+    --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 
 `agon_bench/lenos/config.json` is Agon's minimal non-secret options config.
 `~/.local/share/lenos/config.json` contains host provider secrets; do not read it.
@@ -120,9 +119,8 @@ class LenosAgent(BaseInstalledAgent):
       harbor run -d "terminal-bench-2.0==head" \\
         --agent-import-path agon_bench.adapters.lenos:LenosAgent \\
         -m deepseek-v4-pro \\
-        --task-id hello-world \\
-        -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \\
-        -v ~/.local/share/lenos:/root/.local/share/lenos
+        -t terminal-bench/hello-world \\
+        --mounts "[{\\"type\\":\\"bind\\",\\"source\\":\\"${PWD}/agon_bench/lenos/config.json\\",\\"target\\":\\"/root/.config/lenos/config.json\\",\\"read_only\\":true},{\\"type\\":\\"bind\\",\\"source\\":\\"${HOME}/.local/share/lenos\\",\\"target\\":\\"/root/.local/share/lenos\\",\\"read_only\\":true}]"
     """
 
     CLI_FLAGS = [
@@ -150,11 +148,11 @@ class LenosAgent(BaseInstalledAgent):
             environment,
             command=(
                 "if command -v apt-get &> /dev/null; then "
-                "  apt-get update && apt-get install -y bubblewrap curl; "
+                "  apt-get update && apt-get install -y bubblewrap curl python3; "
                 "elif command -v apk &> /dev/null; then "
-                "  apk add --no-cache bubblewrap curl; "
+                "  apk add --no-cache bubblewrap curl python3; "
                 "elif command -v yum &> /dev/null; then "
-                "  yum install -y bubblewrap curl; "
+                "  yum install -y bubblewrap curl python3; "
                 "fi"
             ),
             env={"DEBIAN_FRONTEND": "noninteractive"},

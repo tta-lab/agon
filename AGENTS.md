@@ -26,9 +26,8 @@ calls `run(instruction)`, then runs the task's test suite.
 harbor run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-pro \
-  --task-id hello-world \
-  -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \
-  -v ~/.local/share/lenos:/root/.local/share/lenos
+  -t terminal-bench/hello-world \
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 
 # Or use make convenience wrapper
 make harbor-run MODEL=deepseek-v4-pro TASK=hello-world
@@ -40,7 +39,7 @@ make lint
 
 ## Adapter — install() lifecycle
 
-1. `apt-get bubblewrap curl` (sandbox deps)
+1. Install `bubblewrap`, `curl`, and `python3`
 2. Download lenos binary from GitHub releases, extract to `/usr/local/bin/lenos`
 3. Write temenos config to `~/.config/temenos/config.toml`
 4. Ensure lenos config dirs exist (`~/.config/lenos`, `~/.local/share/lenos`)
@@ -48,7 +47,7 @@ make lint
 ## Adapter — run() lifecycle
 
 1. Escape instruction, build model flag from `self.model_name`
-2. Execute: `lenos run --quiet -m <model> <instruction>`
+2. Execute: `lenos run -m <model> <instruction>`
 3. Output teed to `/logs/agent/lenos.txt`
 4. Harbor runs the task's test suite after `run()` completes
 
@@ -99,9 +98,8 @@ The adapter lives in this repo but is used via `--agent-import-path`:
 harbor run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-pro \
-  --task-id hello-world \
-  -v ./agon_bench/lenos/config.json:/root/.config/lenos/config.json \
-  -v ~/.local/share/lenos:/root/.local/share/lenos
+  -t terminal-bench/hello-world \
+  --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]"
 ```
 
 Copy just the `agon_bench/adapters/` directory to use the adapter from any project.
