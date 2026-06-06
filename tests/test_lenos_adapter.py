@@ -2,6 +2,7 @@ import json
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from agon_bench.adapters import lenos
 from agon_bench.adapters.lenos import DEFAULT_LENOS_VERSION, LenosAgent
@@ -43,16 +44,64 @@ class LenosAdapterTest(unittest.TestCase):
         self.assertEqual(LenosAgent._reasoning_flag_for_model(None), "")
 
     def test_explicit_reasoning_effort_applies_to_any_model(self):
-        original = lenos.LENOS_REASONING_EFFORT
-        try:
-            lenos.LENOS_REASONING_EFFORT = "xhigh"
-
+        with patch.object(lenos, "LENOS_REASONING_EFFORT", "xhigh"):
             self.assertEqual(
                 LenosAgent._reasoning_flag_for_model("gpt-5.4"),
                 " --reasoning-effort xhigh",
             )
-        finally:
-            lenos.LENOS_REASONING_EFFORT = original
+
+    def test_populate_usage_context_parses_pretty_json(self):
+        context = SimpleNamespace(
+            n_input_tokens=None,
+            n_cache_tokens=None,
+            n_output_tokens=None,
+            cost_usd=None,
+            metadata={},
+        )
+        stdout = json.dumps(
+            {
+                "input_tokens": 30,
+                "input_cache_hit_tokens": 20,
+                "output_tokens": 5,
+                "cost_usd": 0.00123,
+            },
+            indent=2,
+        )
+
+        LenosAgent(Path("/tmp"))._populate_usage_context(context, stdout)
+
+        self.assertEqual(context.n_input_tokens, 30)
+        self.assertEqual(context.n_cache_tokens, 20)
+        self.assertEqual(context.n_output_tokens, 5)
+        self.assertEqual(context.cost_usd, 0.00123)
+
+    def test_populate_usage_context_parses_last_json_line(self):
+        context = SimpleNamespace(
+            n_input_tokens=None,
+            n_cache_tokens=None,
+            n_output_tokens=None,
+            cost_usd=None,
+            metadata={},
+        )
+        stdout = "\n".join(
+            [
+                "ignored log line",
+                json.dumps(
+                    {
+                        "input_tokens": 30,
+                        "input_cache_hit_tokens": 20,
+                        "output_tokens": 5,
+                        "cost_usd": None,
+                    }
+                ),
+            ]
+        )
+
+        LenosAgent(Path("/tmp"))._populate_usage_context(context, stdout)
+
+        self.assertEqual(context.n_input_tokens, 30)
+        self.assertEqual(context.n_cache_tokens, 20)
+        self.assertEqual(context.n_output_tokens, 5)
 
     def test_apply_usage_summary_preserves_lenos_cost(self):
         context = SimpleNamespace(

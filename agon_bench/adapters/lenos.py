@@ -224,9 +224,14 @@ class LenosAgent(BaseInstalledAgent):
             return
 
         try:
-            self._apply_usage_summary(context, json.loads(lines[-1]))
+            summary = json.loads("\n".join(lines))
         except json.JSONDecodeError:
-            return
+            try:
+                summary = json.loads(lines[-1])
+            except json.JSONDecodeError:
+                return
+
+        self._apply_usage_summary(context, summary)
 
     def _apply_usage_summary(self, context: AgentContext, summary: dict) -> None:
         context.n_input_tokens = summary["input_tokens"]
