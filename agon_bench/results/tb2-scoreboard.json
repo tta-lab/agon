@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-07T05:51:19.593924+00:00",
+  "generated_at": "2026-06-07T09:03:16.508434+00:00",
   "entries": [
     {
       "job": "2026-06-04__11-04-01",
@@ -25,7 +25,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__11-04-01"
+      "job_path": "jobs/2026-06-04__11-04-01",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__11-04-35",
@@ -51,7 +53,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__11-04-35"
+      "job_path": "jobs/2026-06-04__11-04-35",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__11-05-07",
@@ -77,7 +81,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__11-05-07"
+      "job_path": "jobs/2026-06-04__11-05-07",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__11-54-41",
@@ -103,7 +109,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__11-54-41"
+      "job_path": "jobs/2026-06-04__11-54-41",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__12-00-11",
@@ -129,7 +137,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__12-00-11"
+      "job_path": "jobs/2026-06-04__12-00-11",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__12-25-40",
@@ -155,7 +165,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__12-25-40"
+      "job_path": "jobs/2026-06-04__12-25-40",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__12-31-01",
@@ -181,7 +193,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__12-31-01"
+      "job_path": "jobs/2026-06-04__12-31-01",
+      "cache_miss_tokens": 1632,
+      "cache_hit_rate": 0.9601250977326036
     },
     {
       "job": "2026-06-04__15-08-27",
@@ -207,7 +221,9 @@
       "cost_usd": null,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__15-08-27"
+      "job_path": "jobs/2026-06-04__15-08-27",
+      "cache_miss_tokens": 8054,
+      "cache_hit_rate": 0.9496190464275438
     },
     {
       "job": "2026-06-04__15-12-42",
@@ -233,7 +249,9 @@
       "cost_usd": 0.0025365984000000003,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__15-12-42"
+      "job_path": "jobs/2026-06-04__15-12-42",
+      "cache_miss_tokens": 3980,
+      "cache_hit_rate": 0.9487826221238482
     },
     {
       "job": "2026-06-04__16-04-40",
@@ -259,7 +277,9 @@
       "cost_usd": 0.010350732,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-04-40"
+      "job_path": "jobs/2026-06-04__16-04-40",
+      "cache_miss_tokens": 14487,
+      "cache_hit_rate": 0.9483947037513314
     },
     {
       "job": "2026-06-04__16-40-41",
@@ -285,7 +305,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-40-41"
+      "job_path": "jobs/2026-06-04__16-40-41",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-40-41",
@@ -311,7 +333,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-40-41"
+      "job_path": "jobs/2026-06-04__16-40-41",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-40-41",
@@ -337,7 +361,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-40-41"
+      "job_path": "jobs/2026-06-04__16-40-41",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-40-41",
@@ -363,7 +389,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-40-41"
+      "job_path": "jobs/2026-06-04__16-40-41",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-46-26",
@@ -389,7 +417,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-46-26"
+      "job_path": "jobs/2026-06-04__16-46-26",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-46-26",
@@ -415,7 +445,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-46-26"
+      "job_path": "jobs/2026-06-04__16-46-26",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-46-26",
@@ -441,7 +473,9 @@
       "cost_usd": 0.0242299176,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-46-26"
+      "job_path": "jobs/2026-06-04__16-46-26",
+      "cache_miss_tokens": 42417,
+      "cache_hit_rate": 0.8490546566124216
     },
     {
       "job": "2026-06-04__16-58-37",
@@ -467,7 +501,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-58-37"
+      "job_path": "jobs/2026-06-04__16-58-37",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-58-37",
@@ -493,7 +529,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-58-37"
+      "job_path": "jobs/2026-06-04__16-58-37",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__16-58-37",
@@ -519,7 +557,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__16-58-37"
+      "job_path": "jobs/2026-06-04__16-58-37",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__17-44-33",
@@ -545,7 +585,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__17-44-33"
+      "job_path": "jobs/2026-06-04__17-44-33",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__17-44-33",
@@ -571,7 +613,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__17-44-33"
+      "job_path": "jobs/2026-06-04__17-44-33",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__18-45-44",
@@ -597,7 +641,9 @@
       "cost_usd": 0.0,
       "provider": "codex",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__18-45-44"
+      "job_path": "jobs/2026-06-04__18-45-44",
+      "cache_miss_tokens": 49373,
+      "cache_hit_rate": 0.44237133079590246
     },
     {
       "job": "2026-06-04__18-52-14",
@@ -623,7 +669,9 @@
       "cost_usd": 0.0,
       "provider": "codex",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__18-52-14"
+      "job_path": "jobs/2026-06-04__18-52-14",
+      "cache_miss_tokens": 317,
+      "cache_hit_rate": 0.9489121676067688
     },
     {
       "job": "2026-06-04__18-54-35",
@@ -649,7 +697,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__18-54-35"
+      "job_path": "jobs/2026-06-04__18-54-35",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-04__19-26-25",
@@ -675,7 +725,9 @@
       "cost_usd": 0.001672412,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__19-26-25"
+      "job_path": "jobs/2026-06-04__19-26-25",
+      "cache_miss_tokens": 8035,
+      "cache_hit_rate": 0.8726119698771304
     },
     {
       "job": "2026-06-04__19-27-57",
@@ -701,7 +753,9 @@
       "cost_usd": 0.00355502,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__19-27-57"
+      "job_path": "jobs/2026-06-04__19-27-57",
+      "cache_miss_tokens": 9585,
+      "cache_hit_rate": 0.9190353507623432
     },
     {
       "job": "2026-06-04__19-30-58",
@@ -727,7 +781,9 @@
       "cost_usd": 0.0321079472,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__19-30-58"
+      "job_path": "jobs/2026-06-04__19-30-58",
+      "cache_miss_tokens": 60798,
+      "cache_hit_rate": 0.9774439772325075
     },
     {
       "job": "2026-06-04__19-40-39",
@@ -753,7 +809,9 @@
       "cost_usd": 0.034929227199999996,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__19-40-39"
+      "job_path": "jobs/2026-06-04__19-40-39",
+      "cache_miss_tokens": 56934,
+      "cache_hit_rate": 0.9894667278921356
     },
     {
       "job": "2026-06-04__20-29-47",
@@ -779,7 +837,9 @@
       "cost_usd": 0.0062780704,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__20-29-47"
+      "job_path": "jobs/2026-06-04__20-29-47",
+      "cache_miss_tokens": 6002,
+      "cache_hit_rate": 0.9564977893745017
     },
     {
       "job": "2026-06-04__20-50-44",
@@ -805,7 +865,9 @@
       "cost_usd": 0.0024507504,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__20-50-44"
+      "job_path": "jobs/2026-06-04__20-50-44",
+      "cache_miss_tokens": 2826,
+      "cache_hit_rate": 0.9127616225226894
     },
     {
       "job": "2026-06-04__20-53-51",
@@ -831,7 +893,9 @@
       "cost_usd": 0.004143848800000001,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__20-53-51"
+      "job_path": "jobs/2026-06-04__20-53-51",
+      "cache_miss_tokens": 2127,
+      "cache_hit_rate": 0.9256891311183314
     },
     {
       "job": "2026-06-04__21-02-13",
@@ -857,7 +921,9 @@
       "cost_usd": 0.0067388944,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__21-02-13"
+      "job_path": "jobs/2026-06-04__21-02-13",
+      "cache_miss_tokens": 28042,
+      "cache_hit_rate": 0.8772725283382204
     },
     {
       "job": "2026-06-04__21-16-08",
@@ -883,7 +949,9 @@
       "cost_usd": 0.0249258352,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__21-16-08"
+      "job_path": "jobs/2026-06-04__21-16-08",
+      "cache_miss_tokens": 62760,
+      "cache_hit_rate": 0.9807292191219206
     },
     {
       "job": "2026-06-04__21-25-25",
@@ -909,7 +977,9 @@
       "cost_usd": 0.0025317376,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__21-25-25"
+      "job_path": "jobs/2026-06-04__21-25-25",
+      "cache_miss_tokens": 9168,
+      "cache_hit_rate": 0.9575083426028921
     },
     {
       "job": "2026-06-04__21-28-42",
@@ -935,7 +1005,9 @@
       "cost_usd": 0.011286979200000002,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__21-28-42"
+      "job_path": "jobs/2026-06-04__21-28-42",
+      "cache_miss_tokens": 22682,
+      "cache_hit_rate": 0.9098296136690704
     },
     {
       "job": "2026-06-04__21-36-00",
@@ -961,7 +1033,9 @@
       "cost_usd": 0.0042991424,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__21-36-00"
+      "job_path": "jobs/2026-06-04__21-36-00",
+      "cache_miss_tokens": 10800,
+      "cache_hit_rate": 0.9743959336949513
     },
     {
       "job": "2026-06-04__21-40-34",
@@ -987,7 +1061,9 @@
       "cost_usd": 0.0003758048,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-04__21-40-34"
+      "job_path": "jobs/2026-06-04__21-40-34",
+      "cache_miss_tokens": 626,
+      "cache_hit_rate": 0.9678016664952166
     },
     {
       "job": "2026-06-05__15-52-06",
@@ -1013,7 +1089,9 @@
       "cost_usd": 0.0033997712,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-05__15-52-06"
+      "job_path": "jobs/2026-06-05__15-52-06",
+      "cache_miss_tokens": 20864,
+      "cache_hit_rate": 0.6930320150659134
     },
     {
       "job": "2026-06-05__15-58-31",
@@ -1039,7 +1117,9 @@
       "cost_usd": 0.020137404000000005,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-05__15-58-31"
+      "job_path": "jobs/2026-06-05__15-58-31",
+      "cache_miss_tokens": 46979,
+      "cache_hit_rate": 0.9625563599352494
     },
     {
       "job": "2026-06-05__17-07-19",
@@ -1065,7 +1145,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-05__17-07-19"
+      "job_path": "jobs/2026-06-05__17-07-19",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-05__17-37-47",
@@ -1091,7 +1173,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-05__17-37-47"
+      "job_path": "jobs/2026-06-05__17-37-47",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-05__18-39-52",
@@ -1117,7 +1201,9 @@
       "cost_usd": 0.006664316000000001,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-05__18-39-52"
+      "job_path": "jobs/2026-06-05__18-39-52",
+      "cache_miss_tokens": 7554,
+      "cache_hit_rate": 0.970462881139881
     },
     {
       "job": "2026-06-05__18-43-48",
@@ -1143,7 +1229,9 @@
       "cost_usd": 0.012733030000000001,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-05__18-43-48"
+      "job_path": "jobs/2026-06-05__18-43-48",
+      "cache_miss_tokens": 19868,
+      "cache_hit_rate": 0.9551419256369269
     },
     {
       "job": "2026-06-06__20-19-39",
@@ -1169,7 +1257,9 @@
       "cost_usd": 0.045369310999999996,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-06__20-19-39"
+      "job_path": "jobs/2026-06-06__20-19-39",
+      "cache_miss_tokens": 27833,
+      "cache_hit_rate": 0.9732422597903257
     },
     {
       "job": "2026-06-06__20-33-25",
@@ -1195,7 +1285,9 @@
       "cost_usd": 0.011065964999999999,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-06__20-33-25"
+      "job_path": "jobs/2026-06-06__20-33-25",
+      "cache_miss_tokens": 15867,
+      "cache_hit_rate": 0.9453666497949571
     },
     {
       "job": "2026-06-06__20-37-16",
@@ -1221,7 +1313,9 @@
       "cost_usd": 0.004265175,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-06__20-37-16"
+      "job_path": "jobs/2026-06-06__20-37-16",
+      "cache_miss_tokens": 4745,
+      "cache_hit_rate": 0.9418112698510025
     },
     {
       "job": "2026-06-06__20-43-18",
@@ -1247,7 +1341,9 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-06__20-43-18"
+      "job_path": "jobs/2026-06-06__20-43-18",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     },
     {
       "job": "2026-06-07__10-58-34",
@@ -1273,7 +1369,9 @@
       "cost_usd": 0.0014502656,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-07__10-58-34"
+      "job_path": "jobs/2026-06-07__10-58-34",
+      "cache_miss_tokens": 8074,
+      "cache_hit_rate": 0.7876715931204965
     },
     {
       "job": "2026-06-07__11-00-55",
@@ -1299,7 +1397,9 @@
       "cost_usd": 0.0009154264,
       "provider": "deepseek",
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-07__11-00-55"
+      "job_path": "jobs/2026-06-07__11-00-55",
+      "cache_miss_tokens": 4615,
+      "cache_hit_rate": 0.8446284887048446
     },
     {
       "job": "2026-06-07__13-23-20",
@@ -1325,7 +1425,65 @@
       "cost_usd": null,
       "provider": null,
       "reasoning_effort": null,
-      "job_path": "jobs/2026-06-07__13-23-20"
+      "job_path": "jobs/2026-06-07__13-23-20",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
+    },
+    {
+      "job": "2026-06-07__16-25-43",
+      "trial": "overfull-hbox__XkYYefs",
+      "task": "terminal-bench/overfull-hbox",
+      "task_key": "overfull-hbox",
+      "difficulty": "easy",
+      "category": "debugging",
+      "model": "gpt-5.5",
+      "agent": "codex",
+      "reward": 0.0,
+      "exception": "NonZeroAgentExitCodeError",
+      "classification": "agent_exception",
+      "display_status": "agent_exception",
+      "summary": "FAILED ../tests/test_outputs.py::test_no_overfull_hboxes - AssertionError: So...",
+      "manual_note": null,
+      "agent_seconds": 50.7,
+      "input_tokens": null,
+      "cache_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "total_tokens": null,
+      "cost_usd": null,
+      "provider": null,
+      "reasoning_effort": null,
+      "job_path": "jobs/2026-06-07__16-25-43",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
+    },
+    {
+      "job": "2026-06-07__16-31-41",
+      "trial": "overfull-hbox__J7cPhd5",
+      "task": "terminal-bench/overfull-hbox",
+      "task_key": "overfull-hbox",
+      "difficulty": "easy",
+      "category": "debugging",
+      "model": "gpt-5.5",
+      "agent": "codex",
+      "reward": 1.0,
+      "exception": null,
+      "classification": "pass",
+      "display_status": "pass",
+      "summary": "passed verifier",
+      "manual_note": null,
+      "agent_seconds": 168.9,
+      "input_tokens": 214771,
+      "cache_tokens": 173312,
+      "output_tokens": 6863,
+      "reasoning_tokens": null,
+      "total_tokens": null,
+      "cost_usd": 0.49984100000000004,
+      "provider": null,
+      "reasoning_effort": null,
+      "job_path": "jobs/2026-06-07__16-31-41",
+      "cache_miss_tokens": 41459,
+      "cache_hit_rate": 0.8069618337671287
     }
   ]
 }

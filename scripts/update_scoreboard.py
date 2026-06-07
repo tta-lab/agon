@@ -107,6 +107,23 @@ def as_dict(value: object) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def add_cache_metrics(entry: dict) -> None:
+    input_tokens = entry.get("input_tokens")
+    cache_tokens = entry.get("cache_tokens")
+    if not isinstance(input_tokens, int) or input_tokens <= 0:
+        entry["cache_miss_tokens"] = None
+        entry["cache_hit_rate"] = None
+        return
+    if not isinstance(cache_tokens, int):
+        entry["cache_miss_tokens"] = None
+        entry["cache_hit_rate"] = None
+        return
+
+    cache_tokens = max(0, min(cache_tokens, input_tokens))
+    entry["cache_miss_tokens"] = input_tokens - cache_tokens
+    entry["cache_hit_rate"] = cache_tokens / input_tokens
+
+
 def reward_from(result: dict) -> object:
     return as_dict(as_dict(result.get("verifier_result")).get("rewards")).get("reward")
 
@@ -187,7 +204,7 @@ def build_entry(
     manual_status = note.get("status")
     manual_note = note.get("note")
 
-    return {
+    entry = {
         "job": job_dir.name,
         "trial": trial_dir.name,
         "task": task_name,
@@ -215,6 +232,8 @@ def build_entry(
         "reasoning_effort": usage.get("reasoning_effort"),
         "job_path": str(job_dir.relative_to(ROOT)),
     }
+    add_cache_metrics(entry)
+    return entry
 
 
 def collect_entries() -> list[dict]:
@@ -244,6 +263,12 @@ def fmt_number(value: object) -> str:
     if isinstance(value, int):
         return f"{value:,}"
     return str(value)
+
+
+def fmt_percent(value: object) -> str:
+    if not isinstance(value, (int, float)):
+        return ""
+    return f"{value * 100:.1f}%"
 
 
 def status_class(status: str) -> str:
@@ -368,6 +393,8 @@ def render_html(payload: dict) -> str:
             f"<td>{fmt_number(entry.get('agent_seconds'))}</td>"
             f"<td>{fmt_number(entry.get('input_tokens'))}</td>"
             f"<td>{fmt_number(entry.get('cache_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('cache_miss_tokens'))}</td>"
+            f"<td>{fmt_percent(entry.get('cache_hit_rate'))}</td>"
             f"<td>{fmt_number(entry.get('output_tokens'))}</td>"
             f"<td>{fmt_number(entry.get('reasoning_tokens'))}</td>"
             f"<td>{fmt_number(entry.get('cost_usd'))}</td>"
@@ -560,7 +587,9 @@ def render_html(payload: dict) -> str:
           <th>reward</th>
           <th>agent s</th>
           <th>input</th>
-          <th>cache</th>
+          <th>cache hit</th>
+          <th>cache miss</th>
+          <th>cache %</th>
           <th>output</th>
           <th>reason</th>
           <th>cost</th>

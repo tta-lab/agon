@@ -1,7 +1,7 @@
 # Agon — Terminal-Bench 2.0 arena for Lenos evaluation via Harbor.
 # Harbor handles container orchestration, task provisioning, and results.
 # The only Agon-specific code is the Lenos agent adapter.
-.PHONY: harbor-run scoreboard release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch fmt lint help venv
+.PHONY: harbor-run codex-run scoreboard release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch fmt lint help venv
 
 HARBOR ?= $(if $(wildcard .venv/bin/harbor),.venv/bin/harbor,harbor)
 LIBSTDCXX_OUT ?= $(shell nix eval --raw nixpkgs#stdenv.cc.cc.lib.outPath 2>/dev/null)
@@ -10,6 +10,8 @@ ORGANON_VERSION ?= latest
 EINAI_VERSION ?= v0.1.0
 EINAI_MODEL ?= deepseek/deepseek-v4-flash
 LENOS_REASONING_EFFORT ?=
+CODEX_REASONING_EFFORT ?= medium
+CODEX_AUTH_JSON_PATH ?= $(HOME)/.codex/auth.json
 TIMEOUT_MULTIPLIER ?=
 LENOS_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/lenos/releases
 ORGANON_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/organon/releases
@@ -19,6 +21,7 @@ HARBOR_ENV = LENOS_VERSION=$(LENOS_VERSION) LENOS_RELEASE_BASE=$(LENOS_RELEASE_B
 AGENT_PATH = agon_bench.adapters.lenos:LenosAgent
 DATASET ?= terminal-bench@2.0
 MODEL ?= deepseek-v4-flash
+CODEX_MODEL ?= gpt-5.5
 N_CONCURRENT ?= 2
 LENOS_CONFIG = $(CURDIR)/agon_bench/lenos/config.json
 TASK_JOURNAL_NAME = $(if $(TASK),$(subst /,_,$(TASK)),manual)
@@ -46,6 +49,36 @@ harbor-run:          ## Run Lenos against TB 2.0 (TASK=org/name for one task, N_
 		$(if $(TASK),-t $(TASK),) \
 		$(if $(N_TASKS),--n-tasks $(N_TASKS),) \
 		--mounts '$(LENOS_MOUNTS_JSON)' \
+		-y
+
+codex-run:           ## Run Codex CLI against TB 2.0 (uses CODEX_AUTH_JSON_PATH and proxy env)
+	@if [ -z "$(TASK)" ] && [ -z "$(N_TASKS)" ]; then \
+		echo "Usage: make codex-run [CODEX_MODEL=<model>] TASK=<org/task>"; \
+		echo "   or: make codex-run [CODEX_MODEL=<model>] N_TASKS=<n> [N_CONCURRENT=<n>]"; \
+		echo "Example: make codex-run CODEX_MODEL=gpt-5.5 TASK=terminal-bench/overfull-hbox"; \
+		exit 1; \
+	fi
+	@test -f "$(CODEX_AUTH_JSON_PATH)" || { \
+		echo "Missing CODEX_AUTH_JSON_PATH=$(CODEX_AUTH_JSON_PATH)"; \
+		exit 1; \
+	}
+	$(if $(LIBSTDCXX_OUT),LD_LIBRARY_PATH=$(LIBSTDCXX_OUT)/lib:$(LD_LIBRARY_PATH),) $(HARBOR) run -d "$(DATASET)" \
+		-a codex \
+		-m $(CODEX_MODEL) \
+		-n $(N_CONCURRENT) \
+		$(if $(TIMEOUT_MULTIPLIER),--timeout-multiplier $(TIMEOUT_MULTIPLIER),) \
+		$(if $(TASK),-t $(TASK),) \
+		$(if $(N_TASKS),--n-tasks $(N_TASKS),) \
+		--agent-env CODEX_AUTH_JSON_PATH="$(CODEX_AUTH_JSON_PATH)" \
+		--agent-env HTTP_PROXY="$(HTTP_PROXY)" \
+		--agent-env HTTPS_PROXY="$(HTTPS_PROXY)" \
+		--agent-env ALL_PROXY="$(ALL_PROXY)" \
+		--agent-env NO_PROXY="$(NO_PROXY)" \
+		--agent-env http_proxy="$(http_proxy)" \
+		--agent-env https_proxy="$(https_proxy)" \
+		--agent-env all_proxy="$(all_proxy)" \
+		--agent-env no_proxy="$(no_proxy)" \
+		--agent-kwarg reasoning_effort=$(CODEX_REASONING_EFFORT) \
 		-y
 
 scoreboard:          ## Rebuild local TB2 scoreboard from jobs/
