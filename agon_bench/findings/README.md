@@ -18,6 +18,8 @@ Current findings:
 | [Timeout can hide final usage metrics](./2026-06-04-timeout-usage-summary.md) | `terminal-bench/break-filter-js-from-html` | `deepseek-v4-flash` | `2026-06-04__18-54-35` | candidate Lenos/Harbor adapter improvement |
 | [Ephemeral shell state hurts terminal tasks](./2026-06-04-ephemeral-shell-state.md) | `terminal-bench/headless-terminal`, others | multiple | multiple | partly addressed by newer Lenos release; keep watching |
 | [Model policy refusal blocks security tasks](./2026-06-04-security-task-refusal.md) | `terminal-bench/break-filter-js-from-html` | `gpt-5.4` | `2026-06-04__18-52-14` | model/provider behavior, not a Lenos bug |
+| [Journal template needs stronger verifier-facing sections](./2026-06-06-journal-template-alignment.md) | multiple | multiple | n/a | candidate Lenos prompt/template improvement |
+| [Source editing needs a clear fallback policy](./2026-06-06-src-edit-fallback-policy.md) | `terminal-bench/overfull-hbox` | `deepseek-v4-pro` | `2026-06-06__20-19-39` | candidate Lenos prompt/tooling improvement |
 
 Related local artifacts:
 

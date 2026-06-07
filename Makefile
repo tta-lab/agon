@@ -7,20 +7,26 @@ HARBOR ?= $(if $(wildcard .venv/bin/harbor),.venv/bin/harbor,harbor)
 LIBSTDCXX_OUT ?= $(shell nix eval --raw nixpkgs#stdenv.cc.cc.lib.outPath 2>/dev/null)
 LENOS_VERSION ?= latest
 ORGANON_VERSION ?= latest
+EINAI_VERSION ?= v0.1.0
+EINAI_MODEL ?= deepseek/deepseek-v4-flash
 LENOS_REASONING_EFFORT ?=
 TIMEOUT_MULTIPLIER ?=
 LENOS_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/lenos/releases
 ORGANON_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/organon/releases
+EINAI_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/einai/releases
 LOCAL_NO_PROXY = host.containers.internal,host.docker.internal,169.254.1.2,127.0.0.1,localhost
-HARBOR_ENV = LENOS_VERSION=$(LENOS_VERSION) LENOS_RELEASE_BASE=$(LENOS_RELEASE_BASE) ORGANON_VERSION=$(ORGANON_VERSION) ORGANON_RELEASE_BASE=$(ORGANON_RELEASE_BASE) $(if $(LENOS_REASONING_EFFORT),LENOS_REASONING_EFFORT=$(LENOS_REASONING_EFFORT),) NO_PROXY=$(LOCAL_NO_PROXY),$(NO_PROXY) no_proxy=$(LOCAL_NO_PROXY),$(no_proxy) $(if $(LIBSTDCXX_OUT),LD_LIBRARY_PATH=$(LIBSTDCXX_OUT)/lib:$(LD_LIBRARY_PATH),)
+HARBOR_ENV = LENOS_VERSION=$(LENOS_VERSION) LENOS_RELEASE_BASE=$(LENOS_RELEASE_BASE) ORGANON_VERSION=$(ORGANON_VERSION) ORGANON_RELEASE_BASE=$(ORGANON_RELEASE_BASE) EINAI_VERSION=$(EINAI_VERSION) EINAI_RELEASE_BASE=$(EINAI_RELEASE_BASE) EINAI_MODEL=$(EINAI_MODEL) $(if $(LENOS_REASONING_EFFORT),LENOS_REASONING_EFFORT=$(LENOS_REASONING_EFFORT),) NO_PROXY=$(LOCAL_NO_PROXY),$(NO_PROXY) no_proxy=$(LOCAL_NO_PROXY),$(no_proxy) $(if $(LIBSTDCXX_OUT),LD_LIBRARY_PATH=$(LIBSTDCXX_OUT)/lib:$(LD_LIBRARY_PATH),)
 AGENT_PATH = agon_bench.adapters.lenos:LenosAgent
 DATASET ?= terminal-bench@2.0
 MODEL ?= deepseek-v4-flash
 N_CONCURRENT ?= 2
 LENOS_CONFIG = $(CURDIR)/agon_bench/lenos/config.json
+TASK_JOURNAL_NAME = $(if $(TASK),$(subst /,_,$(TASK)),manual)
+LENOS_JOURNAL_DIR ?= $(CURDIR)/agon_bench/results/lenos-journals/$(TASK_JOURNAL_NAME)
 RELEASE_PROXY_URL ?= http://127.0.0.1:8765
 RELEASE_ARCH ?= x86_64
-LENOS_MOUNTS = {"type":"bind","source":"$(LENOS_CONFIG)","target":"/root/.config/lenos/config.json","read_only":true},{"type":"bind","source":"$(HOME)/.local/share/lenos","target":"/root/.local/share/lenos","read_only":true}
+EINAI_RELEASE_GOARCH ?= amd64
+LENOS_MOUNTS = {"type":"bind","source":"$(LENOS_CONFIG)","target":"/root/.config/lenos/config.json","read_only":true},{"type":"bind","source":"$(HOME)/.local/share/lenos","target":"/root/.local/share/lenos","read_only":true},{"type":"bind","source":"$(LENOS_JOURNAL_DIR)","target":"/app/.lenos/journals","read_only":false}
 LENOS_MOUNTS_JSON = [$(LENOS_MOUNTS)]
 
 harbor-run:          ## Run Lenos against TB 2.0 (TASK=org/name for one task, N_TASKS=n for subset)
@@ -31,6 +37,7 @@ harbor-run:          ## Run Lenos against TB 2.0 (TASK=org/name for one task, N_
 		echo "Example: make harbor-run N_TASKS=4 N_CONCURRENT=2"; \
 		exit 1; \
 	fi
+	mkdir -p "$(LENOS_JOURNAL_DIR)"
 	$(HARBOR_ENV) $(HARBOR) run -d "$(DATASET)" \
 		--agent-import-path $(AGENT_PATH) \
 		-m $(MODEL) \
@@ -64,8 +71,9 @@ release-proxy-prefetch: ## Cache Lenos plus Organon tools used by Lenos prompts
 		fi; \
 		sleep 0.1; \
 	done
-	curl -fsSL "$(RELEASE_PROXY_URL)/tta-lab/lenos/releases/latest/download/lenos_Linux_$(RELEASE_ARCH).tar.gz" -o /dev/null
+	curl -fsSL "$(RELEASE_PROXY_URL)/tta-lab/lenos/releases/$(if $(filter latest,$(LENOS_VERSION)),latest/download,download/$(LENOS_VERSION))/lenos_Linux_$(RELEASE_ARCH).tar.gz" -o /dev/null
 	curl -fsSL "$(RELEASE_PROXY_URL)/tta-lab/organon/releases/latest/download/organon_Linux_$(RELEASE_ARCH).tar.gz" -o /dev/null
+	curl -fsSL "$(RELEASE_PROXY_URL)/tta-lab/einai/releases/download/$(EINAI_VERSION)/ei_$(patsubst v%,%,$(EINAI_VERSION))_linux_$(EINAI_RELEASE_GOARCH).tar.gz" -o /dev/null
 
 fmt:                 ## Format Python files
 	./scripts/fmt.sh

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import http.server
+import json
 import os
 import re
 import tempfile
@@ -45,11 +46,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
 
         repo = match.group("repo")
-        tag = match.group("tag") or "latest"
+        tag = match.group("tag")
         asset = match.group("asset")
-        cache_path = self.server.cache_dir / repo / tag / asset
 
         try:
+            if tag is None:
+                tag = self._resolve_latest_tag(repo)
+            cache_path = self.server.cache_dir / repo / tag / asset
             with self._cache_lock(cache_path):
                 self._ensure_cached(repo, tag, asset, cache_path)
             self._send_file(cache_path)
@@ -62,14 +65,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         with self.server.cache_locks_guard:
             return self.server.cache_locks.setdefault(cache_path, threading.Lock())
 
+    def _resolve_latest_tag(self, repo: str) -> str:
+        url = f"https://api.github.com/repos/tta-lab/{repo}/releases/latest"
+        request = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "agon-release-proxy",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = json.load(response)
+
+        tag = payload.get("tag_name")
+        if not tag:
+            raise RuntimeError(f"latest release for {repo} has no tag_name")
+        return tag
+
     def _ensure_cached(self, repo: str, tag: str, asset: str, cache_path: Path) -> None:
         if cache_path.exists() and cache_path.stat().st_size > 0:
             return
 
-        if tag == "latest":
-            url = f"https://github.com/tta-lab/{repo}/releases/latest/download/{asset}"
-        else:
-            url = f"https://github.com/tta-lab/{repo}/releases/download/{tag}/{asset}"
+        url = f"https://github.com/tta-lab/{repo}/releases/download/{tag}/{asset}"
 
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
