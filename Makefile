@@ -1,7 +1,7 @@
 # Agon — Terminal-Bench 2.0 arena for Lenos evaluation via Harbor.
 # Harbor handles container orchestration, task provisioning, and results.
 # The only Agon-specific code is the Lenos agent adapter.
-.PHONY: harbor-run codex-run scoreboard release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch fmt lint help venv
+.PHONY: harbor-run codex-run scoreboard scoreboard-check scoreboard-serve release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch fmt lint help venv
 
 HARBOR ?= $(if $(wildcard .venv/bin/harbor),.venv/bin/harbor,harbor)
 LIBSTDCXX_OUT ?= $(shell nix eval --raw nixpkgs#stdenv.cc.cc.lib.outPath 2>/dev/null)
@@ -10,14 +10,16 @@ ORGANON_VERSION ?= latest
 EINAI_VERSION ?= v0.1.0
 EINAI_MODEL ?= deepseek/deepseek-v4-flash
 LENOS_REASONING_EFFORT ?=
+LENOS_NO_SANDBOX ?= 1
 CODEX_REASONING_EFFORT ?= medium
 CODEX_AUTH_JSON_PATH ?= $(HOME)/.codex/auth.json
+CODEX_CONTAINER_PROXY ?= http://host.containers.internal:7890
 TIMEOUT_MULTIPLIER ?=
 LENOS_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/lenos/releases
 ORGANON_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/organon/releases
 EINAI_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/einai/releases
 LOCAL_NO_PROXY = host.containers.internal,host.docker.internal,169.254.1.2,127.0.0.1,localhost
-HARBOR_ENV = LENOS_VERSION=$(LENOS_VERSION) LENOS_RELEASE_BASE=$(LENOS_RELEASE_BASE) ORGANON_VERSION=$(ORGANON_VERSION) ORGANON_RELEASE_BASE=$(ORGANON_RELEASE_BASE) EINAI_VERSION=$(EINAI_VERSION) EINAI_RELEASE_BASE=$(EINAI_RELEASE_BASE) EINAI_MODEL=$(EINAI_MODEL) $(if $(LENOS_REASONING_EFFORT),LENOS_REASONING_EFFORT=$(LENOS_REASONING_EFFORT),) NO_PROXY=$(LOCAL_NO_PROXY),$(NO_PROXY) no_proxy=$(LOCAL_NO_PROXY),$(no_proxy) $(if $(LIBSTDCXX_OUT),LD_LIBRARY_PATH=$(LIBSTDCXX_OUT)/lib:$(LD_LIBRARY_PATH),)
+HARBOR_ENV = LENOS_VERSION=$(LENOS_VERSION) LENOS_RELEASE_BASE=$(LENOS_RELEASE_BASE) ORGANON_VERSION=$(ORGANON_VERSION) ORGANON_RELEASE_BASE=$(ORGANON_RELEASE_BASE) EINAI_VERSION=$(EINAI_VERSION) EINAI_RELEASE_BASE=$(EINAI_RELEASE_BASE) EINAI_MODEL=$(EINAI_MODEL) LENOS_NO_SANDBOX=$(LENOS_NO_SANDBOX) $(if $(LENOS_REASONING_EFFORT),LENOS_REASONING_EFFORT=$(LENOS_REASONING_EFFORT),) NO_PROXY=$(LOCAL_NO_PROXY),$(NO_PROXY) no_proxy=$(LOCAL_NO_PROXY),$(no_proxy) $(if $(LIBSTDCXX_OUT),LD_LIBRARY_PATH=$(LIBSTDCXX_OUT)/lib:$(LD_LIBRARY_PATH),)
 AGENT_PATH = agon_bench.adapters.lenos:LenosAgent
 DATASET ?= terminal-bench@2.0
 MODEL ?= deepseek-v4-flash
@@ -70,19 +72,26 @@ codex-run:           ## Run Codex CLI against TB 2.0 (uses CODEX_AUTH_JSON_PATH 
 		$(if $(TASK),-t $(TASK),) \
 		$(if $(N_TASKS),--n-tasks $(N_TASKS),) \
 		--agent-env CODEX_AUTH_JSON_PATH="$(CODEX_AUTH_JSON_PATH)" \
-		--agent-env HTTP_PROXY="$(HTTP_PROXY)" \
-		--agent-env HTTPS_PROXY="$(HTTPS_PROXY)" \
-		--agent-env ALL_PROXY="$(ALL_PROXY)" \
-		--agent-env NO_PROXY="$(NO_PROXY)" \
-		--agent-env http_proxy="$(http_proxy)" \
-		--agent-env https_proxy="$(https_proxy)" \
-		--agent-env all_proxy="$(all_proxy)" \
-		--agent-env no_proxy="$(no_proxy)" \
+		--agent-env HTTP_PROXY="$(CODEX_CONTAINER_PROXY)" \
+		--agent-env HTTPS_PROXY="$(CODEX_CONTAINER_PROXY)" \
+		--agent-env ALL_PROXY="$(CODEX_CONTAINER_PROXY)" \
+		--agent-env NO_PROXY="$(LOCAL_NO_PROXY),$(NO_PROXY)" \
+		--agent-env http_proxy="$(CODEX_CONTAINER_PROXY)" \
+		--agent-env https_proxy="$(CODEX_CONTAINER_PROXY)" \
+		--agent-env all_proxy="$(CODEX_CONTAINER_PROXY)" \
+		--agent-env no_proxy="$(LOCAL_NO_PROXY),$(no_proxy)" \
 		--agent-kwarg reasoning_effort=$(CODEX_REASONING_EFFORT) \
 		-y
 
 scoreboard:          ## Rebuild local TB2 scoreboard from jobs/
 	python3 scripts/update_scoreboard.py
+
+scoreboard-check:    ## Smoke-check scoreboard scripts and summary rendering
+	python3 -m py_compile scripts/update_scoreboard.py scripts/serve_scoreboard.py
+	python3 -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard; summary = serve_scoreboard.comparison_summary(serve_scoreboard.live_payload()); html = serve_scoreboard.render_summary_html(summary); assert summary["task_rows"], "expected at least one compared task"; assert "Token Mix By Task" in html; assert "cache hit input" in html; assert "ratio good" in html or "ratio bad" in html; assert "Lenos hit" in html; assert "Codex output" in html'
+
+scoreboard-serve:    ## Serve live TB2 scoreboard from jobs/ without regenerating files
+	python3 scripts/serve_scoreboard.py
 
 release-proxy-install: ## Install the local release cache proxy as a systemd user service
 	chmod +x scripts/release_proxy.py

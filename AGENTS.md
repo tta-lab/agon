@@ -118,6 +118,11 @@ temenos config that allows read access to binary paths, the workspace, `/tmp`,
 and the non-secret `/root/.config/lenos` config. Write access is limited to
 `/app`, `/workspace`, and `/tmp`.
 
+For local TB2 smoke runs, `make harbor-run` currently sets
+`LENOS_NO_SANDBOX=1`, so the adapter passes `lenos run --no-sandbox`. This is a
+run-time choice, not part of `agon_bench/lenos/config.json`. Use
+`LENOS_NO_SANDBOX=0` when testing the Temenos policy itself.
+
 Never add `/root/.local/share/lenos` to Temenos `allow_read`. That directory is
 mounted for the Lenos process so it can load provider credentials, but it
 contains host secrets and must not be readable from the task-solving sandbox.

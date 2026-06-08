@@ -50,7 +50,9 @@ make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/hello-world
 4. Harbor passes the task instruction to the adapter's `run()` method
 5. `lenos run -m <model> --usage-json /logs/agent/usage-summary.json <instruction>`
    executes inside the container. Set reasoning with
-   `LENOS_REASONING_EFFORT=<level>` when needed.
+   `LENOS_REASONING_EFFORT=<level>` when needed. The Makefile passes
+   `--no-sandbox` by default for TB2 smoke runs; override with
+   `LENOS_NO_SANDBOX=0` to test the Temenos sandbox path.
 6. Harbor runs the task's test script and records the result
 
 ## Adding the adapter to your project

@@ -26,6 +26,7 @@ DEFAULT_ORGANON_VERSION = "latest"
 DEFAULT_EINAI_VERSION = "v0.1.0"
 DEEPSEEK_REASONING_EFFORT = "xhigh"
 LENOS_REASONING_EFFORT = os.environ.get("LENOS_REASONING_EFFORT")
+LENOS_NO_SANDBOX = os.environ.get("LENOS_NO_SANDBOX", "")
 
 LENOS_VERSION = os.environ.get("LENOS_VERSION", DEFAULT_LENOS_VERSION)
 LENOS_RELEASE_BASE = os.environ.get(
@@ -79,6 +80,10 @@ allow_write = [
 USAGE_SUMMARY_PATH = "/logs/agent/usage-summary.json"
 
 
+def _env_enabled(value: str | None) -> bool:
+    return bool(value) and value.lower() not in {"0", "false", "no", "off"}
+
+
 class LenosAgent(BaseInstalledAgent):
     """Lenos — terminal-first AI agent with self-contained sandboxing.
 
@@ -123,6 +128,12 @@ class LenosAgent(BaseInstalledAgent):
         if not model_name.split("/", 1)[-1].startswith("deepseek"):
             return ""
         return f" --reasoning-effort {shlex.quote(DEEPSEEK_REASONING_EFFORT)}"
+
+    @staticmethod
+    def _sandbox_flag() -> str:
+        if _env_enabled(LENOS_NO_SANDBOX):
+            return " --no-sandbox"
+        return ""
 
     async def install(self, environment: BaseEnvironment) -> None:
         # Install system dependencies for sandboxing
@@ -268,6 +279,7 @@ class LenosAgent(BaseInstalledAgent):
         if self.model_name:
             model_flag = f" -m {shlex.quote(self.model_name)}"
         reasoning_flag = self._reasoning_flag_for_model(self.model_name)
+        sandbox_flag = self._sandbox_flag()
 
         cli_flags = self.build_cli_flags()
         extra_flags = f" {cli_flags}" if cli_flags else ""
@@ -275,7 +287,7 @@ class LenosAgent(BaseInstalledAgent):
         run_cmd = (
             "set -o pipefail; "
             "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
-            f"lenos run{model_flag}{reasoning_flag}{extra_flags} "
+            f"lenos run{model_flag}{reasoning_flag}{sandbox_flag}{extra_flags} "
             f"--usage-json {shlex.quote(USAGE_SUMMARY_PATH)} "
             f"{escaped_instruction} "
             "2>&1 | tee /logs/agent/lenos.txt"

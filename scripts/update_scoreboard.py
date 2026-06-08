@@ -26,6 +26,7 @@ STATUS_RANK = {
     "failed": 3,
     "not_run": 4,
 }
+TB2_TOTAL_TASKS = 89
 
 
 def load_json(path: Path) -> dict:
@@ -54,6 +55,12 @@ def normalize_task_name(task_name: str | None) -> str:
     if not task_name:
         return ""
     return task_name.split("/", 1)[-1]
+
+
+def is_tb2_task(task_name: str | None) -> bool:
+    if not task_name:
+        return False
+    return task_name.startswith("terminal-bench/") or not task_name.startswith("local/")
 
 
 def task_metadata_index() -> dict[str, dict]:
@@ -122,6 +129,15 @@ def add_cache_metrics(entry: dict) -> None:
     cache_tokens = max(0, min(cache_tokens, input_tokens))
     entry["cache_miss_tokens"] = input_tokens - cache_tokens
     entry["cache_hit_rate"] = cache_tokens / input_tokens
+
+
+def harness_label(agent: dict) -> str:
+    raw = agent.get("import_path") or agent.get("name") or ""
+    if raw == "codex":
+        return "Codex CLI"
+    if raw == "agon_bench.adapters.lenos:LenosAgent" or raw == "lenos":
+        return "Lenos"
+    return raw or "unknown"
 
 
 def reward_from(result: dict) -> object:
@@ -213,6 +229,7 @@ def build_entry(
         "category": task_meta.get("category"),
         "model": agent.get("model_name"),
         "agent": agent.get("import_path") or agent.get("name"),
+        "harness": harness_label(agent),
         "reward": reward_from(result),
         "exception": as_dict(result.get("exception_info")).get("exception_type"),
         "classification": classification,
@@ -309,6 +326,7 @@ def build_task_dashboard(entries: list[dict]) -> list[dict]:
             e for e in completed if e.get("classification") == "pass_after_agent_timeout"
         ]
         models = sorted({e.get("model") or "" for e in task_entries if e.get("model")})
+        harnesses = sorted({e.get("harness") or "" for e in task_entries if e.get("harness")})
         latest = max(task_entries, key=lambda e: e.get("job") or "")
         noted = next((e for e in reversed(task_entries) if e.get("manual_note")), latest)
         display_task = next(
@@ -320,6 +338,11 @@ def build_task_dashboard(entries: list[dict]) -> list[dict]:
             latest.get("task") or task_key,
         )
         status = task_status(completed)
+        sorted_entries = sorted(
+            task_entries,
+            key=lambda entry: (entry.get("job") or "", entry.get("trial") or ""),
+            reverse=True,
+        )
         task_rows.append(
             {
                 "task": display_task,
@@ -328,6 +351,7 @@ def build_task_dashboard(entries: list[dict]) -> list[dict]:
                 "category": latest.get("category") or "",
                 "status": status,
                 "models": models,
+                "harnesses": harnesses,
                 "trials": len(completed),
                 "clean_passes": len(clean_passes),
                 "timeout_passes": len(timeout_passes),
@@ -338,6 +362,7 @@ def build_task_dashboard(entries: list[dict]) -> list[dict]:
                 ),
                 "latest_job": latest.get("job"),
                 "latest_summary": noted.get("manual_note") or latest.get("summary"),
+                "entries": sorted_entries,
             }
         )
 
@@ -351,21 +376,74 @@ def build_task_dashboard(entries: list[dict]) -> list[dict]:
     )
 
 
+def render_task_detail(entries: list[dict]) -> str:
+    rows = []
+    for entry in entries:
+        status = entry.get("display_status") or entry["classification"]
+        summary = entry.get("manual_note") or entry.get("summary") or ""
+        rows.append(
+            "<tr>"
+            f"<td><a href=\"../../{escape(entry['job_path'])}/result.json\">{escape(entry['job'])}</a></td>"
+            f"<td>{escape(entry.get('harness') or '')}</td>"
+            f"<td>{escape(entry.get('model') or '')}</td>"
+            f"<td><span class=\"pill {status_class(status)}\">{escape(status)}</span></td>"
+            f"<td>{fmt_number(entry.get('reward'))}</td>"
+            f"<td>{fmt_number(entry.get('agent_seconds'))}</td>"
+            f"<td>{fmt_number(entry.get('input_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('cache_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('cache_miss_tokens'))}</td>"
+            f"<td>{fmt_percent(entry.get('cache_hit_rate'))}</td>"
+            f"<td>{fmt_number(entry.get('output_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('reasoning_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('cost_usd'))}</td>"
+            f"<td>{escape(summary)}</td>"
+            "</tr>"
+        )
+    return (
+        "<table class=\"detail-table\">"
+        "<thead><tr>"
+        "<th>job</th><th>harness</th><th>model</th><th>status</th><th>reward</th>"
+        "<th>agent s</th><th>input</th><th>cache hit</th><th>cache miss</th>"
+        "<th>cache %</th><th>output</th><th>reason</th><th>cost</th><th>summary</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+    )
+
+
 def render_html(payload: dict) -> str:
     entries = payload["entries"]
     completed = [e for e in entries if e["reward"] is not None or e["exception"]]
     passed = sum(1 for e in completed if e["reward"] == 1.0)
     failed = len(completed) - passed
     task_dashboard = build_task_dashboard(entries)
+    tb2_task_dashboard = [task for task in task_dashboard if is_tb2_task(task.get("task"))]
     tasks = len(task_dashboard)
+    tb2_tasks_touched = min(len(tb2_task_dashboard), TB2_TOTAL_TASKS)
+    tb2_clean_passed = sum(1 for task in tb2_task_dashboard if task["status"] == "pass")
+    tb2_near_passed = sum(
+        1
+        for task in tb2_task_dashboard
+        if task["status"] in {"near_pass_95", "pass_after_agent_timeout", "pass_with_exception"}
+    )
+    tb2_failed = sum(1 for task in tb2_task_dashboard if task["status"] == "failed")
+    tb2_not_run = max(0, TB2_TOTAL_TASKS - tb2_tasks_touched)
+    tb2_done = tb2_clean_passed + tb2_near_passed
+    pie_clean = tb2_clean_passed / TB2_TOTAL_TASKS * 100
+    pie_near = (tb2_clean_passed + tb2_near_passed) / TB2_TOTAL_TASKS * 100
+    pie_failed = (
+        tb2_clean_passed + tb2_near_passed + tb2_failed
+    ) / TB2_TOTAL_TASKS * 100
     models = len({e["model"] for e in completed})
+    harnesses = len({e.get("harness") for e in completed if e.get("harness")})
 
     task_rows = []
-    for task in task_dashboard:
+    for index, task in enumerate(task_dashboard):
         status = task["status"]
+        task_id = f"task-detail-{index}"
         task_rows.append(
-            "<tr class=\"task-row\">"
-            f"<td>{escape(task['task'])}</td>"
+            f"<tr class=\"task-row\" data-detail=\"{task_id}\" tabindex=\"0\">"
+            f"<td><span class=\"toggle\" aria-hidden=\"true\">&gt;</span>{escape(task['task'])}</td>"
             f"<td>{escape(task['difficulty'])}</td>"
             f"<td>{escape(task['category'])}</td>"
             f"<td><span class=\"pill {status_class(status)}\">{escape(status)}</span></td>"
@@ -373,9 +451,13 @@ def render_html(payload: dict) -> str:
             f"<td>{fmt_number(task['trials'])}</td>"
             f"<td>{fmt_number(task['clean_passes'])}</td>"
             f"<td>{fmt_number(task['timeout_passes'])}</td>"
+            f"<td>{escape(', '.join(task['harnesses']))}</td>"
             f"<td>{escape(', '.join(task['models']))}</td>"
             f"<td><a href=\"../../jobs/{escape(task['latest_job'] or '')}/result.json\">{escape(task['latest_job'] or '')}</a></td>"
             f"<td>{escape(task.get('latest_summary') or '')}</td>"
+            "</tr>"
+            f"<tr id=\"{task_id}\" class=\"task-detail\" hidden>"
+            f"<td colspan=\"12\">{render_task_detail(task['entries'])}</td>"
             "</tr>"
         )
 
@@ -387,6 +469,7 @@ def render_html(payload: dict) -> str:
             "<tr class=\"run-row\">"
             f"<td><a href=\"../../{escape(entry['job_path'])}/result.json\">{escape(entry['job'])}</a></td>"
             f"<td>{escape(entry.get('task') or '')}</td>"
+            f"<td>{escape(entry.get('harness') or '')}</td>"
             f"<td>{escape(entry.get('model') or '')}</td>"
             f"<td><span class=\"pill {status_class(status)}\">{escape(status)}</span></td>"
             f"<td>{fmt_number(entry.get('reward'))}</td>"
@@ -444,7 +527,7 @@ def render_html(payload: dict) -> str:
     .sub {{ color: var(--muted); max-width: 980px; line-height: 1.5; }}
     .stats {{
       display: grid;
-      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
       gap: 1px;
       background: var(--line);
       border-top: 1px solid var(--line);
@@ -456,6 +539,61 @@ def render_html(payload: dict) -> str:
     }}
     .stat b {{ display: block; font-size: 22px; }}
     .stat span {{ color: var(--muted); font-size: 12px; }}
+    .overview {{
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 24px;
+      align-items: center;
+      padding: 22px 32px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfaf7;
+    }}
+    .pie {{
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at center, #fbfaf7 0 46%, transparent 47%),
+        conic-gradient(
+          var(--pass) 0 {pie_clean:.3f}%,
+          #a16207 {pie_clean:.3f}% {pie_near:.3f}%,
+          var(--fail) {pie_near:.3f}% {pie_failed:.3f}%,
+          #d1d5db {pie_failed:.3f}% 100%
+        );
+      border: 1px solid var(--line);
+    }}
+    .overview-grid {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+    }}
+    .overview-card {{
+      background: var(--panel);
+      padding: 14px 16px;
+    }}
+    .overview-card b {{ display: block; font-size: 24px; }}
+    .overview-card span {{ color: var(--muted); font-size: 12px; }}
+    .legend {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 18px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }}
+    .key {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }}
+    .swatch {{
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }}
     main {{ padding: 24px 32px 40px; }}
     h2 {{
       margin: 0 0 12px;
@@ -519,11 +657,48 @@ def render_html(payload: dict) -> str:
     .dashboard th {{
       background: #e8eadf;
     }}
+    .task-row {{
+      cursor: pointer;
+    }}
+    .task-row:hover {{
+      background: #faf6ed;
+    }}
+    .toggle {{
+      display: inline-block;
+      width: 18px;
+      color: var(--muted);
+    }}
+    .task-row.expanded .toggle {{
+      color: var(--accent);
+    }}
+    .task-detail td {{
+      padding: 0;
+      background: #fbfaf7;
+    }}
+    .detail-table {{
+      border: 0;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+    }}
+    .detail-table th {{
+      position: static;
+      background: #f1ece3;
+    }}
+    .detail-table td {{
+      padding: 8px 9px;
+      background: var(--panel);
+    }}
     .runs {{
       margin-top: 8px;
     }}
     @media (max-width: 900px) {{
       header, main {{ padding-left: 16px; padding-right: 16px; }}
+      .overview {{
+        grid-template-columns: 1fr;
+        padding-left: 16px;
+        padding-right: 16px;
+      }}
+      .overview-grid {{ grid-template-columns: repeat(2, minmax(120px, 1fr)); }}
       .stats {{ grid-template-columns: repeat(2, minmax(120px, 1fr)); }}
       input {{ min-width: 100%; }}
       table {{ display: block; overflow-x: auto; white-space: nowrap; }}
@@ -536,18 +711,36 @@ def render_html(payload: dict) -> str:
     <h1>Agon TB2 Local Scoreboard</h1>
     <div class="sub">Local run ledger for Lenos on terminal-bench@2.0. This is for smoke coverage and failure triage, not an official leaderboard submission. Generated at {generated_at}.</div>
   </header>
+  <section class="overview">
+    <div class="pie" role="img" aria-label="TB2 task completion pie chart"></div>
+    <div>
+      <div class="overview-grid">
+        <div class="overview-card"><b>{tb2_tasks_touched}/{TB2_TOTAL_TASKS}</b><span>TB2 tasks touched</span></div>
+        <div class="overview-card"><b>{tb2_done}</b><span>passed or near-passed tasks</span></div>
+        <div class="overview-card"><b>{tb2_failed}</b><span>touched but still failing</span></div>
+        <div class="overview-card"><b>{tb2_not_run}</b><span>not run yet</span></div>
+      </div>
+      <div class="legend">
+        <span class="key"><span class="swatch" style="background: var(--pass)"></span>{tb2_clean_passed} clean pass</span>
+        <span class="key"><span class="swatch" style="background: #a16207"></span>{tb2_near_passed} near/timeout pass</span>
+        <span class="key"><span class="swatch" style="background: var(--fail)"></span>{tb2_failed} failed</span>
+        <span class="key"><span class="swatch" style="background: #d1d5db"></span>{tb2_not_run} not run</span>
+      </div>
+    </div>
+  </section>
   <section class="stats">
     <div class="stat"><b>{len(completed)}</b><span>completed trials</span></div>
     <div class="stat"><b>{passed}</b><span>passed</span></div>
     <div class="stat"><b>{failed}</b><span>failed or errored</span></div>
     <div class="stat"><b>{tasks}</b><span>tasks touched</span></div>
     <div class="stat"><b>{models}</b><span>models touched</span></div>
+    <div class="stat"><b>{harnesses}</b><span>harnesses touched</span></div>
   </section>
   <main>
     <section class="section">
       <h2>Task Dashboard</h2>
       <div class="toolbar">
-        <input id="filter" type="search" placeholder="filter by task, model, status, summary">
+        <input id="filter" type="search" placeholder="filter by task, harness, model, status, summary">
         <span class="hint">Sorted by cached task difficulty, then pass state</span>
       </div>
       <table id="tasks" class="dashboard">
@@ -561,6 +754,7 @@ def render_html(payload: dict) -> str:
             <th>trials</th>
             <th>clean pass</th>
             <th>timeout pass</th>
+            <th>harnesses</th>
             <th>models</th>
             <th>latest job</th>
             <th>latest note</th>
@@ -582,6 +776,7 @@ def render_html(payload: dict) -> str:
         <tr>
           <th>job</th>
           <th>task</th>
+          <th>harness</th>
           <th>model</th>
           <th>status</th>
           <th>reward</th>
@@ -605,13 +800,36 @@ def render_html(payload: dict) -> str:
   <script type="application/json" id="scoreboard-data">{data_json}</script>
   <script>
     const filter = document.querySelector('#filter');
-    const rows = Array.from(document.querySelectorAll('#tasks tbody tr, #runs tbody tr'));
-    filter.addEventListener('input', () => {{
+    const taskRows = Array.from(document.querySelectorAll('#tasks tbody tr.task-row'));
+    const runRows = Array.from(document.querySelectorAll('#runs tbody tr'));
+    for (const row of taskRows) {{
+      row.addEventListener('click', (event) => {{
+        if (event.target.closest('a')) return;
+        const detail = document.getElementById(row.dataset.detail);
+        const open = detail.hasAttribute('hidden');
+        row.classList.toggle('expanded', open);
+        applyFilter();
+      }});
+      row.addEventListener('keydown', (event) => {{
+        if (event.key === 'Enter' || event.key === ' ') {{
+          event.preventDefault();
+          row.click();
+        }}
+      }});
+    }}
+    function applyFilter() {{
       const q = filter.value.trim().toLowerCase();
-      for (const row of rows) {{
+      for (const row of taskRows) {{
+        const detail = document.getElementById(row.dataset.detail);
+        const matches = !q || row.textContent.toLowerCase().includes(q) || detail.textContent.toLowerCase().includes(q);
+        row.hidden = !matches;
+        detail.hidden = !matches || !row.classList.contains('expanded');
+      }}
+      for (const row of runRows) {{
         row.hidden = q && !row.textContent.toLowerCase().includes(q);
       }}
-    }});
+    }}
+    filter.addEventListener('input', applyFilter);
   </script>
 </body>
 </html>
