@@ -20,6 +20,9 @@ SUMMARY_TEXT_ROUTE = "/summary.txt"
 SUMMARY_JSON_ROUTE = "/summary.json"
 SUMMARY_MODEL = "gpt-5.5"
 SUMMARY_THINKING = "medium"
+GPT55_CACHE_MISS_INPUT_USD_PER_TOKEN = 5 / 1_000_000
+GPT55_CACHE_HIT_INPUT_USD_PER_TOKEN = 0.5 / 1_000_000
+GPT55_OUTPUT_USD_PER_TOKEN = 30 / 1_000_000
 
 
 def live_payload() -> dict:
@@ -59,6 +62,33 @@ def latest_entry(
     if not matches:
         return None
     return max(matches, key=lambda entry: entry.get("job") or "")
+
+
+def mean(values: list[float]) -> float:
+    if not values:
+        return 0
+    return sum(values) / len(values)
+
+
+def ratio_delta_text(ratio: float) -> tuple[str, str]:
+    if ratio < 1:
+        return f"{(1 - ratio) * 100:.1f}%", "less"
+    if ratio > 1:
+        return f"{(ratio - 1) * 100:.1f}%", "more"
+    return "0.0%", "the same"
+
+
+def estimated_gpt55_cost(row: dict, prefix: str) -> float | None:
+    cache_hit = row.get(f"{prefix}_cache_tokens")
+    cache_miss = row.get(f"{prefix}_cache_miss_tokens")
+    output = row.get(f"{prefix}_output_tokens")
+    if not all(isinstance(value, int) for value in (cache_hit, cache_miss, output)):
+        return None
+    return (
+        cache_miss * GPT55_CACHE_MISS_INPUT_USD_PER_TOKEN
+        + cache_hit * GPT55_CACHE_HIT_INPUT_USD_PER_TOKEN
+        + output * GPT55_OUTPUT_USD_PER_TOKEN
+    )
 
 
 def task_row_for(task: str, entries: list[dict]) -> dict:
@@ -106,27 +136,47 @@ def comparison_summary(payload: dict) -> dict:
         if lenos and codex:
             successful_pairs.append({"task": task, "lenos": lenos, "codex": codex})
 
-    lenos_entries = [pair["lenos"] for pair in successful_pairs]
-    codex_entries = [pair["codex"] for pair in successful_pairs]
-    lenos_seconds = sum(entry.get("agent_seconds") or 0 for entry in lenos_entries)
-    codex_seconds = sum(entry.get("agent_seconds") or 0 for entry in codex_entries)
-    lenos_input = sum(entry.get("input_tokens") or 0 for entry in lenos_entries)
-    codex_input = sum(entry.get("input_tokens") or 0 for entry in codex_entries)
-    max_seconds = max(lenos_seconds, codex_seconds, 1)
-    max_input = max(lenos_input, codex_input, 1)
     task_rows = [task_row_for(task, payload["entries"]) for task in tasks]
+    lenos_seconds = sum(row.get("lenos_agent_seconds") or 0 for row in task_rows)
+    codex_seconds = sum(row.get("codex_agent_seconds") or 0 for row in task_rows)
+    lenos_input = sum(row.get("lenos_input_tokens") or 0 for row in task_rows)
+    codex_input = sum(row.get("codex_input_tokens") or 0 for row in task_rows)
+    time_ratios = [
+        row["lenos_agent_seconds"] / row["codex_agent_seconds"]
+        for row in task_rows
+        if row.get("lenos_agent_seconds") and row.get("codex_agent_seconds")
+    ]
+    token_ratios = [
+        token_total(row, "lenos") / token_total(row, "codex")
+        for row in task_rows
+        if token_total(row, "lenos") and token_total(row, "codex")
+    ]
+    mean_time_ratio = mean(time_ratios)
+    mean_token_ratio = mean(token_ratios)
+    token_delta, token_word = ratio_delta_text(mean_token_ratio)
+    lenos_cost = sum(
+        cost
+        for row in task_rows
+        if (cost := estimated_gpt55_cost(row, "lenos")) is not None
+    )
+    codex_cost = sum(
+        cost
+        for row in task_rows
+        if (cost := estimated_gpt55_cost(row, "codex")) is not None
+    )
+    cost_ratio = lenos_cost / codex_cost if codex_cost else 0
+    cost_delta, cost_word = ratio_delta_text(cost_ratio)
 
-    time_delta = 1 - (lenos_seconds / codex_seconds) if codex_seconds else 0
-    token_delta = 1 - (lenos_input / codex_input) if codex_input else 0
-    time_word = "less" if time_delta >= 0 else "more"
-    token_word = "fewer" if token_delta >= 0 else "more"
     sentence = (
         f"On the same {SUMMARY_MODEL} model with {SUMMARY_THINKING} thinking, "
         f"Lenos has successful runs on {len(lenos_successes)}/{len(tasks)} shared "
-        f"tasks versus Codex CLI's {len(codex_successes)}/{len(tasks)}; on the "
-        f"{len(successful_pairs)} tasks both solved, Lenos spent {abs(time_delta):.1%} "
-        f"{time_word} agent time and {abs(token_delta):.1%} {token_word} input tokens."
+        f"tasks versus Codex CLI's {len(codex_successes)}/{len(tasks)}. Using the "
+        f"Codex-observed {SUMMARY_MODEL} rates across all shared tasks, Lenos cost "
+        f"${lenos_cost:.2f} versus Codex CLI's ${codex_cost:.2f} "
+        f"({cost_delta} {cost_word}); equal-task token ratio was "
+        f"{mean_token_ratio:.2f}x."
     )
+    max_cost = max(lenos_cost, codex_cost, 1)
     return {
         "sentence": sentence,
         "model": SUMMARY_MODEL,
@@ -139,15 +189,24 @@ def comparison_summary(payload: dict) -> dict:
             "passes": len(lenos_successes),
             "agent_seconds": round(lenos_seconds, 1),
             "input_tokens": lenos_input,
-            "agent_seconds_share": lenos_seconds / max_seconds,
-            "input_tokens_share": lenos_input / max_input,
         },
         "codex_cli": {
             "passes": len(codex_successes),
             "agent_seconds": round(codex_seconds, 1),
             "input_tokens": codex_input,
-            "agent_seconds_share": codex_seconds / max_seconds,
-            "input_tokens_share": codex_input / max_input,
+        },
+        "mean_ratios": {
+            "agent_seconds": mean_time_ratio,
+            "total_tokens": mean_token_ratio,
+        },
+        "estimated_cost": {
+            "pricing": "gpt-5.5 inferred from Codex CLI: $5/M cache-miss input, $0.5/M cache-hit input, $30/M output",
+            "lenos": lenos_cost,
+            "codex_cli": codex_cost,
+            "ratio": cost_ratio,
+            "lenos_share": lenos_cost / max_cost,
+            "codex_cli_share": codex_cost / max_cost,
+            "token_ratio": mean_token_ratio,
         },
     }
 
@@ -160,6 +219,12 @@ def fmt_number(value: object) -> str:
     if isinstance(value, int):
         return f"{value:,}"
     return str(value)
+
+
+def fmt_money(value: object) -> str:
+    if not isinstance(value, int | float):
+        return ""
+    return f"${value:,.3f}"
 
 
 def token_total(row: dict, prefix: str) -> int:
@@ -231,10 +296,11 @@ def render_summary_html(summary: dict) -> str:
     paired_count = summary["paired_success_count"]
     lenos_pass_width = lenos_passes / max(shared_count, 1) * 100
     codex_pass_width = codex_passes / max(shared_count, 1) * 100
-    lenos_time_width = summary["lenos"]["agent_seconds_share"] * 100
-    codex_time_width = summary["codex_cli"]["agent_seconds_share"] * 100
-    lenos_token_width = summary["lenos"]["input_tokens_share"] * 100
-    codex_token_width = summary["codex_cli"]["input_tokens_share"] * 100
+    lenos_cost_width = summary["estimated_cost"]["lenos_share"] * 100
+    codex_cost_width = summary["estimated_cost"]["codex_cli_share"] * 100
+    lenos_cost = summary["estimated_cost"]["lenos"]
+    codex_cost = summary["estimated_cost"]["codex_cli"]
+    cost_ratio = summary["estimated_cost"]["ratio"]
 
     task_rows = []
     token_chart_rows = []
@@ -242,21 +308,29 @@ def render_summary_html(summary: dict) -> str:
         lenos_state = "pass" if row["lenos_pass"] else "fail"
         codex_state = "pass" if row["codex_pass"] else "fail"
         max_task_total = max(token_total(row, "lenos"), token_total(row, "codex"), 1)
+        lenos_row_cost = estimated_gpt55_cost(row, "lenos")
+        codex_row_cost = estimated_gpt55_cost(row, "codex")
+        row_cost_ratio = (
+            lenos_row_cost / codex_row_cost if lenos_row_cost and codex_row_cost else None
+        )
         task_rows.append(
             "<tr>"
             f"<td>{row['task']}</td>"
             f"<td><span class=\"state {lenos_state}\">{lenos_state}</span></td>"
             f"<td>{fmt_number(row.get('lenos_agent_seconds'))}</td>"
+            f"<td>{fmt_money(lenos_row_cost)}</td>"
             f"<td>{fmt_number(row.get('lenos_input_tokens'))}</td>"
             f"<td>{fmt_number(row.get('lenos_cache_tokens'))}</td>"
             f"<td>{fmt_number(row.get('lenos_cache_miss_tokens'))}</td>"
             f"<td>{fmt_number(row.get('lenos_output_tokens'))}</td>"
             f"<td><span class=\"state {codex_state}\">{codex_state}</span></td>"
             f"<td>{fmt_number(row.get('codex_agent_seconds'))}</td>"
+            f"<td>{fmt_money(codex_row_cost)}</td>"
             f"<td>{fmt_number(row.get('codex_input_tokens'))}</td>"
             f"<td>{fmt_number(row.get('codex_cache_tokens'))}</td>"
             f"<td>{fmt_number(row.get('codex_cache_miss_tokens'))}</td>"
             f"<td>{fmt_number(row.get('codex_output_tokens'))}</td>"
+            f"<td>{fmt_number(row_cost_ratio)}</td>"
             "</tr>"
         )
         token_chart_rows.append(
@@ -541,11 +615,10 @@ def render_summary_html(summary: dict) -> str:
         <div class="bar-row"><span>Codex CLI</span><div class="track"><div class="fill codex" style="width:{codex_pass_width:.3f}%"></div></div><b>{codex_passes}/{shared_count}</b></div>
       </div>
       <div class="panel chart">
-        <h2>Resource Use On Tasks Both Solved</h2>
-        <div class="bar-row"><span>Lenos time</span><div class="track"><div class="fill lenos" style="width:{lenos_time_width:.3f}%"></div></div><b>{fmt_number(summary['lenos']['agent_seconds'])}s</b></div>
-        <div class="bar-row"><span>Codex time</span><div class="track"><div class="fill codex" style="width:{codex_time_width:.3f}%"></div></div><b>{fmt_number(summary['codex_cli']['agent_seconds'])}s</b></div>
-        <div class="bar-row"><span>Lenos input</span><div class="track"><div class="fill lenos" style="width:{lenos_token_width:.3f}%"></div></div><b>{fmt_number(summary['lenos']['input_tokens'])}</b></div>
-        <div class="bar-row"><span>Codex input</span><div class="track"><div class="fill codex" style="width:{codex_token_width:.3f}%"></div></div><b>{fmt_number(summary['codex_cli']['input_tokens'])}</b></div>
+        <h2>Estimated Dollar Cost</h2>
+        <div class="bar-row"><span>Lenos</span><div class="track"><div class="fill lenos" style="width:{lenos_cost_width:.3f}%"></div></div><b>${lenos_cost:.2f}</b></div>
+        <div class="bar-row"><span>Codex CLI</span><div class="track"><div class="fill codex" style="width:{codex_cost_width:.3f}%"></div></div><b>${codex_cost:.2f}</b></div>
+        <div class="bar-row"><span>Ratio</span><div class="track"><div class="fill lenos" style="width:{min(cost_ratio, 1) * 100:.3f}%"></div></div><b>{cost_ratio:.2f}x</b></div>
       </div>
     </section>
 
@@ -567,16 +640,19 @@ def render_summary_html(summary: dict) -> str:
             <th>task</th>
             <th>Lenos</th>
             <th>Lenos s</th>
+            <th>Lenos $</th>
             <th>Lenos input</th>
             <th>Lenos hit</th>
             <th>Lenos miss</th>
             <th>Lenos output</th>
             <th>Codex</th>
             <th>Codex s</th>
+            <th>Codex $</th>
             <th>Codex input</th>
             <th>Codex hit</th>
             <th>Codex miss</th>
             <th>Codex output</th>
+            <th>$/ratio</th>
           </tr>
         </thead>
         <tbody>{''.join(task_rows)}</tbody>

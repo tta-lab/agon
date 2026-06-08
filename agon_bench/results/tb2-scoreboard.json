@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-08T10:30:56.354769+00:00",
+  "generated_at": "2026-06-08T11:03:30.225154+00:00",
   "entries": [
     {
       "job": "2026-06-04__11-04-01",
@@ -2262,6 +2262,35 @@
       "job_path": "jobs/2026-06-08__17-45-21",
       "cache_miss_tokens": 59185,
       "cache_hit_rate": 0.8091994339008295
+    },
+    {
+      "job": "2026-06-08__18-35-54",
+      "trial": "overfull-hbox__gSmNjFm",
+      "task": "terminal-bench/overfull-hbox",
+      "task_key": "overfull-hbox",
+      "difficulty": "easy",
+      "category": "debugging",
+      "model": "gpt-5.5",
+      "agent": "agon_bench.adapters.lenos:LenosAgent",
+      "harness": "Lenos",
+      "reward": 0.0,
+      "exception": "AgentTimeoutError",
+      "classification": "agent_timeout",
+      "display_status": "agent_timeout",
+      "summary": "agent hit the task agent timeout",
+      "manual_note": null,
+      "agent_seconds": 1500.1,
+      "input_tokens": null,
+      "cache_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "total_tokens": null,
+      "cost_usd": null,
+      "provider": null,
+      "reasoning_effort": null,
+      "job_path": "jobs/2026-06-08__18-35-54",
+      "cache_miss_tokens": null,
+      "cache_hit_rate": null
     }
   ]
 }

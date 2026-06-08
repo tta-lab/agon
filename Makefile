@@ -88,7 +88,7 @@ scoreboard:          ## Rebuild local TB2 scoreboard from jobs/
 
 scoreboard-check:    ## Smoke-check scoreboard scripts and summary rendering
 	python3 -m py_compile scripts/update_scoreboard.py scripts/serve_scoreboard.py
-	python3 -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard; summary = serve_scoreboard.comparison_summary(serve_scoreboard.live_payload()); html = serve_scoreboard.render_summary_html(summary); assert summary["task_rows"], "expected at least one compared task"; assert "Token Mix By Task" in html; assert "cache hit input" in html; assert "ratio good" in html or "ratio bad" in html; assert "Lenos hit" in html; assert "Codex output" in html'
+	python3 -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard; summary = serve_scoreboard.comparison_summary(serve_scoreboard.live_payload()); html = serve_scoreboard.render_summary_html(summary); assert summary["task_rows"], "expected at least one compared task"; assert "Estimated Dollar Cost" in html; assert "Token Mix By Task" in html; assert "cache hit input" in html; assert "ratio good" in html or "ratio bad" in html; assert "Lenos $$" in html; assert "Codex output" in html'
 
 scoreboard-serve:    ## Serve live TB2 scoreboard from jobs/ without regenerating files
 	python3 scripts/serve_scoreboard.py
