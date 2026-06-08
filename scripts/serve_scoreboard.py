@@ -137,6 +137,9 @@ def comparison_summary(payload: dict) -> dict:
             successful_pairs.append({"task": task, "lenos": lenos, "codex": codex})
 
     task_rows = [task_row_for(task, payload["entries"]) for task in tasks]
+    paired_success_rows = [
+        row for row in task_rows if row.get("lenos_pass") and row.get("codex_pass")
+    ]
     lenos_seconds = sum(row.get("lenos_agent_seconds") or 0 for row in task_rows)
     codex_seconds = sum(row.get("codex_agent_seconds") or 0 for row in task_rows)
     lenos_input = sum(row.get("lenos_input_tokens") or 0 for row in task_rows)
@@ -148,7 +151,7 @@ def comparison_summary(payload: dict) -> dict:
     ]
     token_ratios = [
         token_total(row, "lenos") / token_total(row, "codex")
-        for row in task_rows
+        for row in paired_success_rows
         if token_total(row, "lenos") and token_total(row, "codex")
     ]
     mean_time_ratio = mean(time_ratios)
@@ -156,12 +159,12 @@ def comparison_summary(payload: dict) -> dict:
     token_delta, token_word = ratio_delta_text(mean_token_ratio)
     lenos_cost = sum(
         cost
-        for row in task_rows
+        for row in paired_success_rows
         if (cost := estimated_gpt55_cost(row, "lenos")) is not None
     )
     codex_cost = sum(
         cost
-        for row in task_rows
+        for row in paired_success_rows
         if (cost := estimated_gpt55_cost(row, "codex")) is not None
     )
     cost_ratio = lenos_cost / codex_cost if codex_cost else 0
@@ -170,10 +173,10 @@ def comparison_summary(payload: dict) -> dict:
     sentence = (
         f"On the same {SUMMARY_MODEL} model with {SUMMARY_THINKING} thinking, "
         f"Lenos has successful runs on {len(lenos_successes)}/{len(tasks)} shared "
-        f"tasks versus Codex CLI's {len(codex_successes)}/{len(tasks)}. Using the "
-        f"Codex-observed {SUMMARY_MODEL} rates across all shared tasks, Lenos cost "
-        f"${lenos_cost:.2f} versus Codex CLI's ${codex_cost:.2f} "
-        f"({cost_delta} {cost_word}); equal-task token ratio was "
+        f"tasks versus Codex CLI's {len(codex_successes)}/{len(tasks)}. On the "
+        f"{len(paired_success_rows)} tasks both solved, using the Codex-observed "
+        f"{SUMMARY_MODEL} rates, Lenos cost ${lenos_cost:.2f} versus Codex CLI's "
+        f"${codex_cost:.2f} ({cost_delta} {cost_word}); solved-task token ratio was "
         f"{mean_token_ratio:.2f}x."
     )
     max_cost = max(lenos_cost, codex_cost, 1)
@@ -183,7 +186,7 @@ def comparison_summary(payload: dict) -> dict:
         "thinking": SUMMARY_THINKING,
         "shared_tasks": tasks,
         "paired_success_tasks": [pair["task"] for pair in successful_pairs],
-        "paired_success_count": len(successful_pairs),
+        "paired_success_count": len(paired_success_rows),
         "task_rows": task_rows,
         "lenos": {
             "passes": len(lenos_successes),
@@ -238,14 +241,26 @@ def token_total(row: dict, prefix: str) -> int:
     )
 
 
+def result_icon(passed: bool, label: str) -> str:
+    state = "pass" if passed else "fail"
+    text = "passed" if passed else "failed"
+    return (
+        f"<span class=\"result-icon {state}\" "
+        f"title=\"{label} {text}\" aria-label=\"{label} {text}\">"
+        f"{'✓' if passed else '×'}</span>"
+    )
+
+
 def stacked_token_bar(row: dict, prefix: str, label: str, max_total: int) -> str:
     cache_hit = row.get(f"{prefix}_cache_tokens")
     cache_miss = row.get(f"{prefix}_cache_miss_tokens")
     output = row.get(f"{prefix}_output_tokens")
     total = token_total(row, prefix)
+    passed = bool(row.get(f"{prefix}_pass"))
+    bar_label = f"{result_icon(passed, label)}<span>{label}</span>"
     if total <= 0:
         return (
-            f"<div class=\"mini-bar missing\"><span>{label}</span>"
+            f"<div class=\"mini-bar missing\"><span class=\"bar-label\">{bar_label}</span>"
             "<div class=\"track\"></div><b>no token data</b></div>"
         )
 
@@ -261,7 +276,7 @@ def stacked_token_bar(row: dict, prefix: str, label: str, max_total: int) -> str
                 f"<i class=\"seg {name}\" style=\"width:{value / total * 100:.3f}%\"></i>"
             )
     return (
-        f"<div class=\"mini-bar\"><span>{label}</span>"
+        f"<div class=\"mini-bar\"><span class=\"bar-label\">{bar_label}</span>"
         f"<div class=\"track\"><div class=\"stack\" style=\"width:{width:.3f}%\">"
         f"{''.join(segments)}</div></div><b>{fmt_number(total)}</b></div>"
     )
@@ -538,10 +553,37 @@ def render_summary_html(summary: dict) -> str:
     .ratio.neutral b {{ color: var(--muted); }}
     .mini-bar {{
       display: grid;
-      grid-template-columns: 52px 1fr 88px;
+      grid-template-columns: 74px 1fr 88px;
       align-items: center;
       gap: 10px;
       font-size: 12px;
+    }}
+    .bar-label {{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }}
+    .result-icon {{
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      border: 1px solid currentColor;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      opacity: .9;
+    }}
+    .result-icon.pass {{
+      color: var(--good);
+      background: color-mix(in srgb, var(--good) 9%, transparent);
+    }}
+    .result-icon.fail {{
+      color: var(--bad);
+      background: color-mix(in srgb, var(--bad) 8%, transparent);
     }}
     .mini-bar b {{
       text-align: right;
@@ -586,7 +628,7 @@ def render_summary_html(summary: dict) -> str:
       .topline, .grid {{ grid-template-columns: 1fr; }}
       .task-token-row {{ grid-template-columns: 1fr; }}
       .ratio {{ justify-items: start; }}
-      .mini-bar {{ grid-template-columns: 52px 1fr 78px; }}
+      .mini-bar {{ grid-template-columns: 74px 1fr 78px; }}
       h1 {{ font-size: 34px; }}
     }}
   </style>

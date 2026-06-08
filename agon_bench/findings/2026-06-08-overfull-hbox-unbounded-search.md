@@ -45,6 +45,13 @@ until Harbor killed the agent phase. Because the process was killed by the
 Harbor timeout, Lenos did not write a final usage summary; the run has no
 input/cache/output token data.
 
+The agent also did not have useful time feedback while this was happening. The
+outer Codex/Harbor operator can see wall-clock duration for commands, and
+Harbor knows the overall agent timeout, but the Lenos transcript shown to the
+agent does not currently include per-command elapsed time or remaining budget.
+That makes it harder for the agent to notice that repeated `pdflatex` calls or
+one long search script are consuming the task budget.
+
 ## Why This Is Not A Simple Tool Failure
 
 This was not primarily a missing-TeX or sandbox issue. The task files were
@@ -89,8 +96,15 @@ Possible generic directions:
 
 - Teach the native coder prompt or journal template to record a search budget
   for constrained search tasks before starting scripts.
-- Warn or intervene when a command contains an expensive nested verifier loop
-  such as `itertools.product(...)` plus repeated compiler/test execution.
+- Add factual command elapsed time to run results, for example
+  `[command completed in 8.42s, exit code 0]`. Start with elapsed time only;
+  avoid first-version "slow command" judgement because false positives are
+  likely.
+- For background jobs, prefer runtime completion notifications over asking the
+  agent to poll. Lenos agent currently does not have a good way to stop or
+  manage its own long-running jobs, and intentionally pushing agents toward
+  polling would add noise and token cost. The runtime should notify when a job
+  completes and include elapsed time in that notification.
 - Encourage greedy/local edits before combinatorial search when the verifier is
   expensive.
 - Add command runtime visibility to transcripts and summaries, so slow terminal
