@@ -88,7 +88,7 @@ scoreboard:          ## Rebuild local TB2 scoreboard from jobs/
 
 scoreboard-check:    ## Smoke-check scoreboard scripts and summary rendering
 	python3 -m py_compile scripts/update_scoreboard.py scripts/serve_scoreboard.py
-	python3 -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard; summary = serve_scoreboard.comparison_summary(serve_scoreboard.live_payload()); html = serve_scoreboard.render_summary_html(summary); assert summary["task_rows"], "expected at least one compared task"; assert "Estimated Dollar Cost" in html; assert "Token Mix By Task" in html; assert "cache hit input" in html; assert "ratio good" in html or "ratio bad" in html; assert "result-icon" in html; assert "Lenos $$" in html; assert "Codex output" in html'
+	python3 -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard, update_scoreboard; payload = serve_scoreboard.live_payload(); summary = serve_scoreboard.comparison_summary(payload); summary_html = serve_scoreboard.render_summary_html(summary); scoreboard_html = update_scoreboard.render_html(payload); runs_html = update_scoreboard.render_runs_html(payload); assert summary["task_rows"], "expected at least one compared task"; assert "Estimated Dollar Cost" in summary_html; assert "Token Mix By Task" in summary_html; assert "cache hit input" in summary_html; assert "ratio good" in summary_html or "ratio bad" in summary_html; assert "result-icon" in summary_html; assert "Lenos $$" in summary_html; assert "Codex output" in summary_html; assert "Task Dashboard" in scoreboard_html; assert "Run Log" not in scoreboard_html; assert "Agon TB2 Run Log" in runs_html'
 
 scoreboard-serve:    ## Serve live TB2 scoreboard from jobs/ without regenerating files
 	python3 scripts/serve_scoreboard.py

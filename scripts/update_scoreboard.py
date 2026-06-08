@@ -16,6 +16,7 @@ CACHE_TASKS_DIR = Path.home() / ".cache" / "harbor" / "tasks"
 RESULTS_DIR = ROOT / "agon_bench" / "results"
 JSON_PATH = RESULTS_DIR / "tb2-scoreboard.json"
 HTML_PATH = RESULTS_DIR / "tb2-scoreboard.html"
+RUNS_HTML_PATH = RESULTS_DIR / "tb2-runs.html"
 NOTES_PATH = RESULTS_DIR / "tb2-scoreboard-notes.json"
 DIFFICULTY_RANK = {"easy": 0, "medium": 1, "hard": 2, "unknown": 3}
 STATUS_RANK = {
@@ -158,6 +159,8 @@ def classify(result: dict, transcript: str, verifier: str) -> str:
     if exception == "AgentTimeoutError":
         return "agent_timeout"
     if exception:
+        if "request transport error" in combined or "backend-api/codex/responses" in combined:
+            return "provider_transport_error"
         if "message content is shorter than read bytes" in combined:
             return "lenos_runtime_error"
         return "agent_exception"
@@ -183,6 +186,12 @@ def summarize_failure(classification: str, transcript: str, verifier: str) -> st
         return "agent hit the task agent timeout"
     if classification == "lenos_runtime_error":
         return "Lenos exited with a runtime/protocol error"
+    if classification == "provider_transport_error":
+        for line in reversed(transcript.splitlines()):
+            line = line.strip()
+            if "request transport error" in line or "backend-api/codex/responses" in line:
+                return line[:240]
+        return "provider transport error before the agent could work"
 
     for line in reversed(verifier.splitlines()):
         line = line.strip()
@@ -411,6 +420,33 @@ def render_task_detail(entries: list[dict]) -> str:
     )
 
 
+def render_run_rows(entries: list[dict]) -> str:
+    rows = []
+    for entry in reversed(entries):
+        status = entry.get("display_status") or entry["classification"]
+        summary = entry.get("manual_note") or entry.get("summary") or ""
+        rows.append(
+            "<tr class=\"run-row\">"
+            f"<td><a href=\"../../{escape(entry['job_path'])}/result.json\">{escape(entry['job'])}</a></td>"
+            f"<td>{escape(entry.get('task') or '')}</td>"
+            f"<td>{escape(entry.get('harness') or '')}</td>"
+            f"<td>{escape(entry.get('model') or '')}</td>"
+            f"<td><span class=\"pill {status_class(status)}\">{escape(status)}</span></td>"
+            f"<td>{fmt_number(entry.get('reward'))}</td>"
+            f"<td>{fmt_number(entry.get('agent_seconds'))}</td>"
+            f"<td>{fmt_number(entry.get('input_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('cache_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('cache_miss_tokens'))}</td>"
+            f"<td>{fmt_percent(entry.get('cache_hit_rate'))}</td>"
+            f"<td>{fmt_number(entry.get('output_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('reasoning_tokens'))}</td>"
+            f"<td>{fmt_number(entry.get('cost_usd'))}</td>"
+            f"<td>{escape(summary)}</td>"
+            "</tr>"
+        )
+    return "".join(rows)
+
+
 def render_html(payload: dict) -> str:
     entries = payload["entries"]
     completed = [e for e in entries if e["reward"] is not None or e["exception"]]
@@ -458,30 +494,6 @@ def render_html(payload: dict) -> str:
             "</tr>"
             f"<tr id=\"{task_id}\" class=\"task-detail\" hidden>"
             f"<td colspan=\"12\">{render_task_detail(task['entries'])}</td>"
-            "</tr>"
-        )
-
-    rows = []
-    for entry in reversed(entries):
-        status = entry.get("display_status") or entry["classification"]
-        summary = entry.get("manual_note") or entry.get("summary") or ""
-        rows.append(
-            "<tr class=\"run-row\">"
-            f"<td><a href=\"../../{escape(entry['job_path'])}/result.json\">{escape(entry['job'])}</a></td>"
-            f"<td>{escape(entry.get('task') or '')}</td>"
-            f"<td>{escape(entry.get('harness') or '')}</td>"
-            f"<td>{escape(entry.get('model') or '')}</td>"
-            f"<td><span class=\"pill {status_class(status)}\">{escape(status)}</span></td>"
-            f"<td>{fmt_number(entry.get('reward'))}</td>"
-            f"<td>{fmt_number(entry.get('agent_seconds'))}</td>"
-            f"<td>{fmt_number(entry.get('input_tokens'))}</td>"
-            f"<td>{fmt_number(entry.get('cache_tokens'))}</td>"
-            f"<td>{fmt_number(entry.get('cache_miss_tokens'))}</td>"
-            f"<td>{fmt_percent(entry.get('cache_hit_rate'))}</td>"
-            f"<td>{fmt_number(entry.get('output_tokens'))}</td>"
-            f"<td>{fmt_number(entry.get('reasoning_tokens'))}</td>"
-            f"<td>{fmt_number(entry.get('cost_usd'))}</td>"
-            f"<td>{escape(summary)}</td>"
             "</tr>"
         )
 
@@ -688,8 +700,11 @@ def render_html(payload: dict) -> str:
       padding: 8px 9px;
       background: var(--panel);
     }}
-    .runs {{
-      margin-top: 8px;
+    .nav {{
+      display: flex;
+      gap: 14px;
+      margin-top: 12px;
+      flex-wrap: wrap;
     }}
     @media (max-width: 900px) {{
       header, main {{ padding-left: 16px; padding-right: 16px; }}
@@ -710,6 +725,11 @@ def render_html(payload: dict) -> str:
   <header>
     <h1>Agon TB2 Local Scoreboard</h1>
     <div class="sub">Local run ledger for Lenos on terminal-bench@2.0. This is for smoke coverage and failure triage, not an official leaderboard submission. Generated at {generated_at}.</div>
+    <nav class="nav">
+      <a href="./tb2-runs.html">Run log</a>
+      <a href="/summary">Lenos vs Codex summary</a>
+      <a href="./tb2-scoreboard.json">JSON</a>
+    </nav>
   </header>
   <section class="overview">
     <div class="pie" role="img" aria-label="TB2 task completion pie chart"></div>
@@ -765,43 +785,11 @@ def render_html(payload: dict) -> str:
         </tbody>
       </table>
     </section>
-
-    <section class="section runs">
-      <h2>Run Log</h2>
-      <div class="toolbar">
-        <span class="hint">Raw trial rows from jobs/* result files</span>
-      </div>
-    <table id="runs">
-      <thead>
-        <tr>
-          <th>job</th>
-          <th>task</th>
-          <th>harness</th>
-          <th>model</th>
-          <th>status</th>
-          <th>reward</th>
-          <th>agent s</th>
-          <th>input</th>
-          <th>cache hit</th>
-          <th>cache miss</th>
-          <th>cache %</th>
-          <th>output</th>
-          <th>reason</th>
-          <th>cost</th>
-          <th>summary</th>
-        </tr>
-      </thead>
-      <tbody>
-        {''.join(rows)}
-      </tbody>
-    </table>
-    </section>
   </main>
   <script type="application/json" id="scoreboard-data">{data_json}</script>
   <script>
     const filter = document.querySelector('#filter');
     const taskRows = Array.from(document.querySelectorAll('#tasks tbody tr.task-row'));
-    const runRows = Array.from(document.querySelectorAll('#runs tbody tr'));
     for (const row of taskRows) {{
       row.addEventListener('click', (event) => {{
         if (event.target.closest('a')) return;
@@ -825,6 +813,151 @@ def render_html(payload: dict) -> str:
         row.hidden = !matches;
         detail.hidden = !matches || !row.classList.contains('expanded');
       }}
+    }}
+    filter.addEventListener('input', applyFilter);
+  </script>
+</body>
+</html>
+"""
+
+
+def render_runs_html(payload: dict) -> str:
+    entries = payload["entries"]
+    generated_at = escape(payload["generated_at"])
+    data_json = escape(json.dumps(payload, ensure_ascii=False), quote=False)
+    rows = render_run_rows(entries)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agon TB2 Run Log</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --ink: #171717;
+      --muted: #646464;
+      --line: #d8d8d8;
+      --paper: #f7f4ee;
+      --panel: #ffffff;
+      --pass: #0f766e;
+      --fail: #b42318;
+      --accent: #9a5b13;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 14px;
+    }}
+    header {{
+      padding: 28px 32px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }}
+    h1 {{ margin: 0 0 10px; font-size: 24px; letter-spacing: 0; }}
+    .sub {{ color: var(--muted); max-width: 980px; line-height: 1.5; }}
+    .nav {{ display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; }}
+    main {{ padding: 24px 32px 40px; }}
+    .toolbar {{ display: flex; gap: 12px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }}
+    input {{
+      min-width: 360px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      padding: 9px 10px;
+      font: inherit;
+    }}
+    .hint {{ color: var(--muted); }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }}
+    th, td {{
+      padding: 10px 9px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{
+      position: sticky;
+      top: 0;
+      background: #eee8dd;
+      z-index: 1;
+      font-size: 12px;
+      color: #3f3a34;
+    }}
+    td:last-child {{ max-width: 520px; line-height: 1.45; }}
+    a {{ color: var(--accent); text-decoration: none; }}
+    a:hover {{ text-decoration: underline; }}
+    .pill {{
+      display: inline-block;
+      border: 1px solid currentColor;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 12px;
+      white-space: nowrap;
+    }}
+    .pass {{ color: var(--pass); }}
+    .warn {{ color: #a16207; }}
+    .fail {{ color: var(--fail); }}
+    .neutral {{ color: var(--muted); }}
+    @media (max-width: 900px) {{
+      header, main {{ padding-left: 16px; padding-right: 16px; }}
+      input {{ min-width: 100%; }}
+      table {{ display: block; overflow-x: auto; white-space: nowrap; }}
+      td:last-child {{ white-space: normal; min-width: 360px; }}
+    }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Agon TB2 Run Log</h1>
+    <div class="sub">Raw trial rows from jobs/* result files. Generated at {generated_at}.</div>
+    <nav class="nav">
+      <a href="./tb2-scoreboard.html">Task dashboard</a>
+      <a href="/summary">Lenos vs Codex summary</a>
+      <a href="./tb2-scoreboard.json">JSON</a>
+    </nav>
+  </header>
+  <main>
+    <div class="toolbar">
+      <input id="filter" type="search" placeholder="filter by task, harness, model, status, summary">
+      <span class="hint">{len(entries)} raw runs</span>
+    </div>
+    <table id="runs">
+      <thead>
+        <tr>
+          <th>job</th>
+          <th>task</th>
+          <th>harness</th>
+          <th>model</th>
+          <th>status</th>
+          <th>reward</th>
+          <th>agent s</th>
+          <th>input</th>
+          <th>cache hit</th>
+          <th>cache miss</th>
+          <th>cache %</th>
+          <th>output</th>
+          <th>reason</th>
+          <th>cost</th>
+          <th>summary</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>
+  </main>
+  <script type="application/json" id="scoreboard-data">{data_json}</script>
+  <script>
+    const filter = document.querySelector('#filter');
+    const runRows = Array.from(document.querySelectorAll('#runs tbody tr'));
+    function applyFilter() {{
+      const q = filter.value.trim().toLowerCase();
       for (const row of runRows) {{
         row.hidden = q && !row.textContent.toLowerCase().includes(q);
       }}
@@ -844,8 +977,10 @@ def main() -> None:
     }
     JSON_PATH.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     HTML_PATH.write_text(render_html(payload), encoding="utf-8")
+    RUNS_HTML_PATH.write_text(render_runs_html(payload), encoding="utf-8")
     print(f"wrote {JSON_PATH.relative_to(ROOT)}")
     print(f"wrote {HTML_PATH.relative_to(ROOT)}")
+    print(f"wrote {RUNS_HTML_PATH.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
