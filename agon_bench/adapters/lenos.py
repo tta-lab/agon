@@ -11,6 +11,7 @@ Mount your host lenos config into the container:
 import json
 import os
 import shlex
+import base64
 
 from harbor.agents.installed.base import (
     BaseInstalledAgent,
@@ -78,6 +79,8 @@ allow_write = [
 """
 
 USAGE_SUMMARY_PATH = "/logs/agent/usage-summary.json"
+TASK_CONTEXT_PATH = "/tmp/agon-task.md"
+TASK_TRIGGER = "Start."
 
 
 def _env_enabled(value: str | None) -> bool:
@@ -274,7 +277,6 @@ class LenosAgent(BaseInstalledAgent):
         environment: BaseEnvironment,
         context: AgentContext,
     ) -> None:
-        escaped_instruction = shlex.quote(instruction)
         model_flag = ""
         if self.model_name:
             model_flag = f" -m {shlex.quote(self.model_name)}"
@@ -283,13 +285,20 @@ class LenosAgent(BaseInstalledAgent):
 
         cli_flags = self.build_cli_flags()
         extra_flags = f" {cli_flags}" if cli_flags else ""
+        task_context = self._task_context(instruction)
+
+        await self.exec_as_agent(
+            environment,
+            command=self._write_task_context_command(task_context),
+        )
 
         run_cmd = (
             "set -o pipefail; "
             "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
             f"lenos run{model_flag}{reasoning_flag}{sandbox_flag}{extra_flags} "
+            f"--context-file {shlex.quote(TASK_CONTEXT_PATH)} "
             f"--usage-json {shlex.quote(USAGE_SUMMARY_PATH)} "
-            f"{escaped_instruction} "
+            f"{shlex.quote(TASK_TRIGGER)} "
             "2>&1 | tee /logs/agent/lenos.txt"
         )
         await self.exec_as_agent(
@@ -302,6 +311,20 @@ class LenosAgent(BaseInstalledAgent):
             command=f"cat {shlex.quote(USAGE_SUMMARY_PATH)}",
         )
         self._populate_usage_context(context, result.stdout)
+
+    @staticmethod
+    def _task_context(instruction: str) -> str:
+        return instruction.strip() + "\n"
+
+    @staticmethod
+    def _write_task_context_command(task_context: str) -> str:
+        encoded = base64.b64encode(task_context.encode("utf-8")).decode("ascii")
+        script = (
+            "import base64\n"
+            "from pathlib import Path\n"
+            f"Path({TASK_CONTEXT_PATH!r}).write_bytes(base64.b64decode({encoded!r}))\n"
+        )
+        return f"python3 - <<'PY'\n{script}PY"
 
     def _populate_usage_context(self, context: AgentContext, stdout: str) -> None:
         lines = [line.strip() for line in stdout.splitlines() if line.strip()]

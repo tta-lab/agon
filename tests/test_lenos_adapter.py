@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class LenosAdapterTest(unittest.TestCase):
-    def test_default_lenos_version_uses_stable_release(self):
-        self.assertEqual(DEFAULT_LENOS_VERSION, "v1.4.3+0.74.1")
+    def test_default_lenos_version_uses_latest_release(self):
+        self.assertEqual(DEFAULT_LENOS_VERSION, "latest")
 
     def test_minimal_lenos_config_does_not_install_post_step_hook(self):
         config = json.loads((ROOT / "agon_bench/lenos/config.json").read_text())
@@ -28,6 +28,21 @@ class LenosAdapterTest(unittest.TestCase):
         self.assertNotIn("agon-lenos-post-step", source)
         self.assertNotIn("USAGE_HOOK_SCRIPT", source)
         self.assertNotIn("USAGE_SUMMARY_CMD", source)
+
+    def test_adapter_injects_task_through_context_file(self):
+        source = (ROOT / "agon_bench/adapters/lenos.py").read_text()
+
+        self.assertIn("--context-file", source)
+        self.assertIn('TASK_CONTEXT_PATH = "/tmp/agon-task.md"', source)
+        self.assertIn("TASK_TRIGGER", source)
+        self.assertNotIn("escaped_instruction = shlex.quote(instruction)", source)
+
+    def test_task_context_preserves_harbor_instruction_without_agon_wrapper(self):
+        context = LenosAgent._task_context("Do the thing.")
+
+        self.assertEqual(context, "Do the thing.\n")
+        self.assertNotIn("Agon", context)
+        self.assertNotIn("Terminal-Bench", context)
 
     def test_deepseek_models_use_xhigh_reasoning(self):
         self.assertEqual(

@@ -8,9 +8,8 @@ description: Use when running, documenting, or debugging Harbor jobs, Harbor CLI
 Use the local Harbor CLI first:
 
 ```bash
-HARBOR=${HARBOR:-.venv/bin/harbor}
-[ -x "$HARBOR" ] || HARBOR=harbor
-"$HARBOR" run --help
+HARBOR=${HARBOR:-"uv run harbor"}
+$HARBOR run --help
 ```
 
 Harbor flags move. Check `harbor run --help` before changing docs or scripts.
@@ -20,7 +19,7 @@ Harbor flags move. Check `harbor run --help` before changing docs or scripts.
 Single registry task:
 
 ```bash
-"$HARBOR" run -d "terminal-bench-2.0==head" \
+$HARBOR run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -31,7 +30,7 @@ Single registry task:
 Dataset subset:
 
 ```bash
-"$HARBOR" run -d "terminal-bench-2.0==head" \
+$HARBOR run -d "terminal-bench-2.0==head" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   --include-task-name "python-*" \
@@ -106,7 +105,7 @@ Run it with `--path`:
 ```bash
 LIBSTDCXX_OUT=$(nix eval --raw nixpkgs#stdenv.cc.cc.lib.outPath 2>/dev/null || true)
 LD_LIBRARY_PATH="$LIBSTDCXX_OUT/lib:${LD_LIBRARY_PATH:-}" \
-  "$HARBOR" run --path /tmp/agon-smoke-task \
+  $HARBOR run --path /tmp/agon-smoke-task \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]" \
@@ -161,7 +160,7 @@ allows `/root/.einai` in the Temenos sandbox so the main agent can connect to
 Before claiming Harbor docs or scripts are correct:
 
 ```bash
-"$HARBOR" run --help
+$HARBOR run --help
 make lint
 git diff --check
 rg -n -- "--task-id|--task-ids| -v |lenos run --quiet" README.md AGENTS.md agon_bench/adapters/lenos.py Makefile

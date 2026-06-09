@@ -5,10 +5,10 @@ cd "$(dirname "$0")/.."
 echo "=== Agon: Format ==="
 PYTHON_FORMATTED=0
 SHELL_FORMATTED=0
-if command -v ruff &>/dev/null; then
-  ruff format agon_bench/ && PYTHON_FORMATTED=1
+if command -v uv &>/dev/null; then
+  uv run ruff format agon_bench/ tests/ && PYTHON_FORMATTED=1
 else
-  echo "(ruff not installed, skip Python format)"
+  echo "(uv not installed, skip Python format)"
 fi
 if command -v shfmt &>/dev/null; then
   shopt -s globstar nullglob
@@ -17,5 +17,5 @@ else
   echo "(shfmt not installed, skip shell format)"
 fi
 if [ $PYTHON_FORMATTED -eq 0 ] && [ $SHELL_FORMATTED -eq 0 ]; then
-  echo "No formatters installed. Install ruff and shfmt for formatting."
+  echo "No formatters installed. Install uv and shfmt for formatting."
 fi

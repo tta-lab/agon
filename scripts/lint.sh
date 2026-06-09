@@ -3,8 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 echo "=== Agon: Lint ==="
-if command -v ruff &>/dev/null; then
-  ruff check agon_bench/
+if command -v uv &>/dev/null; then
+  uv run ruff check agon_bench/ tests/
 else
-  echo "(ruff not installed, skip lint)"
+  echo "(uv not installed, skip lint)"
 fi

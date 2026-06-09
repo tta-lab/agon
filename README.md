@@ -14,10 +14,9 @@ verification, and result collection.
 
 ## Requirements
 
-- **Python 3.12+** with [Harbor](https://pypi.org/project/harbor/) installed:
+- **uv** with Python 3.12+ dependencies synced:
   ```bash
-  uv tool install harbor
-  # or: pip install harbor
+  uv sync
   ```
 - **Docker** — Harbor uses Docker for task containers
 - **Lenos config** — Agon supplies minimal non-secret options from
@@ -28,7 +27,7 @@ verification, and result collection.
 
 ```bash
 # Run Lenos against a single TB 2.0 task
-harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -62,7 +61,7 @@ make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/hello-world
 cp -r agon_bench/adapters /path/to/your/project/
 
 # Then run from your project directory
-harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -74,7 +73,7 @@ harbor run -d "terminal-bench@2.0" \
 
 ```bash
 # Run matching tasks from the dataset
-harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   --include-task-name "python-*" \
@@ -83,7 +82,7 @@ harbor run -d "terminal-bench@2.0" \
   -y
 
 # Run the full dataset
-harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]" \
@@ -92,5 +91,5 @@ harbor run -d "terminal-bench@2.0" \
 
 ## Code conventions
 
-- **Python**: ruff for format and lint (`make fmt`, `make lint`)
+- **Python**: `uv run pytest`, `uv run ruff`, or the `make` wrappers
 - **Git**: conventional commits — `feat(agon):`, `fix(agon):`, `chore(agon):`

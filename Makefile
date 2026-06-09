@@ -1,9 +1,12 @@
 # Agon — Terminal-Bench 2.0 arena for Lenos evaluation via Harbor.
 # Harbor handles container orchestration, task provisioning, and results.
 # The only Agon-specific code is the Lenos agent adapter.
-.PHONY: harbor-run codex-run scoreboard scoreboard-check scoreboard-serve release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch fmt lint help venv
+.PHONY: harbor-run codex-run scoreboard scoreboard-check scoreboard-serve release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch test fmt lint help
 
-HARBOR ?= $(if $(wildcard .venv/bin/harbor),.venv/bin/harbor,harbor)
+UV ?= uv
+PYTHON ?= $(UV) run python
+PYTEST ?= $(UV) run pytest
+HARBOR ?= $(UV) run harbor
 LIBSTDCXX_OUT ?= $(shell nix eval --raw nixpkgs#stdenv.cc.cc.lib.outPath 2>/dev/null)
 LENOS_VERSION ?= latest
 ORGANON_VERSION ?= latest
@@ -84,14 +87,17 @@ codex-run:           ## Run Codex CLI against TB 2.0 (uses CODEX_AUTH_JSON_PATH 
 		-y
 
 scoreboard:          ## Rebuild local TB2 scoreboard from jobs/
-	python3 scripts/update_scoreboard.py
+	$(PYTHON) scripts/update_scoreboard.py
 
 scoreboard-check:    ## Smoke-check scoreboard scripts and summary rendering
-	python3 -m py_compile scripts/update_scoreboard.py scripts/serve_scoreboard.py
-	python3 -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard, update_scoreboard; payload = serve_scoreboard.live_payload(); summary = serve_scoreboard.comparison_summary(payload); summary_html = serve_scoreboard.render_summary_html(summary); scoreboard_html = update_scoreboard.render_html(payload); runs_html = update_scoreboard.render_runs_html(payload); assert summary["task_rows"], "expected at least one compared task"; assert "Estimated Dollar Cost" in summary_html; assert "Token Mix By Task" in summary_html; assert "cache hit input" in summary_html; assert "ratio good" in summary_html or "ratio bad" in summary_html; assert "result-icon" in summary_html; assert "Lenos $$" in summary_html; assert "Codex output" in summary_html; assert "Task Dashboard" in scoreboard_html; assert "Run Log" not in scoreboard_html; assert "Agon TB2 Run Log" in runs_html'
+	$(PYTHON) -m py_compile scripts/update_scoreboard.py scripts/serve_scoreboard.py
+	$(PYTHON) -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard, update_scoreboard; payload = serve_scoreboard.live_payload(); summary = serve_scoreboard.comparison_summary(payload); summary_html = serve_scoreboard.render_summary_html(summary); scoreboard_html = update_scoreboard.render_html(payload); runs_html = update_scoreboard.render_runs_html(payload); assert summary["task_rows"], "expected at least one compared task"; assert "Estimated Dollar Cost" in summary_html; assert "Token Mix By Task" in summary_html; assert "cache hit input" in summary_html; assert "ratio good" in summary_html or "ratio bad" in summary_html; assert "result-icon" in summary_html; assert "Lenos $$" in summary_html; assert "Codex output" in summary_html; assert "Task Dashboard" in scoreboard_html; assert "Run Log" not in scoreboard_html; assert "Agon TB2 Run Log" in runs_html'
 
 scoreboard-serve:    ## Serve live TB2 scoreboard from jobs/ without regenerating files
-	python3 scripts/serve_scoreboard.py
+	$(PYTHON) scripts/serve_scoreboard.py
+
+test:                ## Run Python tests
+	$(PYTEST)
 
 release-proxy-install: ## Install the local release cache proxy as a systemd user service
 	chmod +x scripts/release_proxy.py

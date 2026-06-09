@@ -34,7 +34,7 @@ calls `run(instruction)`, then runs the task's test suite.
 
 ```bash
 # Run Lenos against a single TB 2.0 task
-harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -56,6 +56,18 @@ make fmt
 make lint
 ```
 
+## Local TB2 Cache
+
+Keep downloaded TB2 task definitions under `.agon-cache/tb2/`, which is
+gitignored:
+
+```bash
+uv run harbor download terminal-bench@2.0 -o .agon-cache/tb2 --export
+```
+
+Use this cache to inspect task names, metadata, timeouts, and instructions
+without downloading the dataset again. Do not commit downloaded task contents.
+
 ## Evaluation Workflow
 
 Use Agon as a task-by-task lab before attempting full-suite or leaderboard runs.
@@ -70,6 +82,16 @@ Use Agon as a task-by-task lab before attempting full-suite or leaderboard runs.
    local judgement.
 6. Keep running cases. Implement fixes later from the strongest repeated
    findings.
+
+When increasing paired Lenos/Codex coverage, track coverage at the task level:
+a shared task means the same `terminal-bench/<task>` has at least one Lenos run
+and at least one Codex CLI run for the same model/effort comparison. Harbor's
+`-n/--n-concurrent` controls concurrent trials inside one Harbor job, not
+parallelism across different task names. For cross-task batches, use an outer
+runner such as `xargs -P2` and keep each single-task Harbor invocation at
+`-n 1`. Always pass a unique `--job-name` for each outer-parallel Harbor
+invocation; Harbor's default timestamp job name can collide when two jobs start
+in the same second.
 
 The local scoreboard is for smoke coverage and triage. It is not an official
 leaderboard submission. Manual labels such as `near_pass_95` may appear in
@@ -156,7 +178,7 @@ specific failure.
 The adapter lives in this repo but is used via `--agent-import-path`:
 
 ```bash
-harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench@2.0" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -192,6 +214,7 @@ scoreboard notes, commits, or PR descriptions.
 
 ## Code Conventions
 
-- **Python**: ruff for format and lint. No type annotations on internal functions.
+- **Python**: use `uv run python`, `uv run pytest`, and `uv run ruff`.
+  No type annotations on internal functions.
   Single module per adapter.
 - **Shell**: `set -euo pipefail`. `[[ ]]` for conditionals. Lowercase local vars.
