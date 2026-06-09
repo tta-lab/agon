@@ -28,6 +28,7 @@ STATUS_RANK = {
     "not_run": 4,
 }
 TB2_TOTAL_TASKS = 89
+PROBLEM_STATUSES = {"benchmark_leakage"}
 
 
 def load_json(path: Path) -> dict:
@@ -89,15 +90,23 @@ def task_metadata_index() -> dict[str, dict]:
     return index
 
 
-def load_notes() -> dict[tuple[str, str], dict]:
-    notes = load_json(NOTES_PATH)
+def index_notes(notes: dict) -> dict[tuple[str, str], dict]:
     index = {}
     for item in notes.get("entries", []):
         job = item.get("job")
         trial = item.get("trial")
         if job and trial:
             index[(job, trial)] = item
+    for item in notes.get("tasks", []):
+        task = item.get("task") or item.get("task_key")
+        task_key = normalize_task_name(task)
+        if task_key:
+            index[("task", task_key)] = item
     return index
+
+
+def load_notes() -> dict[tuple[str, str], dict]:
+    return index_notes(load_json(NOTES_PATH))
 
 
 def seconds_between(start: str | None, finish: str | None) -> float | None:
@@ -225,7 +234,9 @@ def build_entry(
     usage = as_dict(as_dict(agent_result.get("metadata")).get("lenos_usage"))
     execution = as_dict(result.get("agent_execution"))
     classification = classify(result, transcript, verifier)
-    note = notes.get((job_dir.name, trial_dir.name), {})
+    note = notes.get((job_dir.name, trial_dir.name)) or notes.get(
+        ("task", normalize_task_name(task_name)), {}
+    )
     manual_status = note.get("status")
     manual_note = note.get("note")
 
@@ -243,6 +254,8 @@ def build_entry(
         "exception": as_dict(result.get("exception_info")).get("exception_type"),
         "classification": classification,
         "display_status": manual_status or classification,
+        "note_status": manual_status,
+        "comparison_excluded": manual_status in PROBLEM_STATUSES,
         "summary": summarize_failure(classification, transcript, verifier),
         "manual_note": manual_note,
         "agent_seconds": seconds_between(
@@ -307,8 +320,16 @@ def status_class(status: str) -> str:
     return "fail"
 
 
+def is_problem_entry(entry: dict) -> bool:
+    return (entry.get("display_status") or entry.get("note_status")) in PROBLEM_STATUSES
+
+
+def is_effective_pass(entry: dict) -> bool:
+    return entry.get("classification") == "pass" and not is_problem_entry(entry)
+
+
 def task_status(entries: list[dict]) -> str:
-    if any(e.get("classification") == "pass" for e in entries):
+    if any(is_effective_pass(e) for e in entries):
         return "pass"
     if any(e.get("display_status") == "near_pass_95" for e in entries):
         return "near_pass_95"
@@ -330,7 +351,7 @@ def build_task_dashboard(entries: list[dict]) -> list[dict]:
     task_rows = []
     for task_key, task_entries in grouped.items():
         completed = [e for e in task_entries if e.get("reward") is not None or e.get("exception")]
-        clean_passes = [e for e in completed if e.get("classification") == "pass"]
+        clean_passes = [e for e in completed if is_effective_pass(e)]
         timeout_passes = [
             e for e in completed if e.get("classification") == "pass_after_agent_timeout"
         ]
@@ -450,7 +471,7 @@ def render_run_rows(entries: list[dict]) -> str:
 def render_html(payload: dict) -> str:
     entries = payload["entries"]
     completed = [e for e in entries if e["reward"] is not None or e["exception"]]
-    passed = sum(1 for e in completed if e["reward"] == 1.0)
+    passed = sum(1 for e in completed if is_effective_pass(e))
     failed = len(completed) - passed
     task_dashboard = build_task_dashboard(entries)
     tb2_task_dashboard = [task for task in task_dashboard if is_tb2_task(task.get("task"))]

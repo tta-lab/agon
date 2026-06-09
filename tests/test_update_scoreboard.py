@@ -27,5 +27,43 @@ class CacheMetricsTest(unittest.TestCase):
         self.assertIsNone(entry["cache_hit_rate"])
 
 
+class ManualNoteStatusTest(unittest.TestCase):
+    def test_benchmark_leakage_is_not_effective_pass(self):
+        entry = {
+            "classification": "pass",
+            "display_status": "benchmark_leakage",
+        }
+
+        self.assertFalse(update_scoreboard.is_effective_pass(entry))
+
+    def test_benchmark_leakage_makes_task_status_failed(self):
+        entries = [
+            {
+                "classification": "pass",
+                "display_status": "benchmark_leakage",
+            }
+        ]
+
+        self.assertEqual(update_scoreboard.task_status(entries), "failed")
+
+    def test_load_notes_indexes_task_notes_by_normalized_task_key(self):
+        notes = {
+            "entries": [],
+            "tasks": [
+                {
+                    "task": "terminal-bench/mteb-leaderboard",
+                    "status": "benchmark_leakage",
+                    "note": "exclude task",
+                }
+            ],
+        }
+
+        index = update_scoreboard.index_notes(notes)
+
+        self.assertEqual(
+            index[("task", "mteb-leaderboard")]["status"], "benchmark_leakage"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

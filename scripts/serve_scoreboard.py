@@ -59,7 +59,7 @@ def latest_entry(
         if entry.get("task_key") == task
         and entry.get("harness") == harness
         and entry.get("model") == SUMMARY_MODEL
-        and (not successful or entry.get("reward") == 1.0)
+        and (not successful or update_scoreboard.is_effective_pass(entry))
     ]
     if not matches:
         return None
