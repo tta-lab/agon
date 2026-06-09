@@ -24,20 +24,24 @@ EINAI_RELEASE_BASE ?= http://host.containers.internal:8765/tta-lab/einai/release
 LOCAL_NO_PROXY = host.containers.internal,host.docker.internal,169.254.1.2,127.0.0.1,localhost
 HARBOR_ENV = LENOS_VERSION=$(LENOS_VERSION) LENOS_RELEASE_BASE=$(LENOS_RELEASE_BASE) ORGANON_VERSION=$(ORGANON_VERSION) ORGANON_RELEASE_BASE=$(ORGANON_RELEASE_BASE) EINAI_VERSION=$(EINAI_VERSION) EINAI_RELEASE_BASE=$(EINAI_RELEASE_BASE) EINAI_MODEL=$(EINAI_MODEL) LENOS_NO_SANDBOX=$(LENOS_NO_SANDBOX) $(if $(LENOS_REASONING_EFFORT),LENOS_REASONING_EFFORT=$(LENOS_REASONING_EFFORT),) NO_PROXY=$(LOCAL_NO_PROXY),$(NO_PROXY) no_proxy=$(LOCAL_NO_PROXY),$(no_proxy) $(if $(LIBSTDCXX_OUT),LD_LIBRARY_PATH=$(LIBSTDCXX_OUT)/lib:$(LD_LIBRARY_PATH),)
 AGENT_PATH = agon_bench.adapters.lenos:LenosAgent
-DATASET ?= terminal-bench@2.0
+BENCHMARK ?= tb2.1
+DATASET ?= terminal-bench/terminal-bench-2-1
 MODEL ?= deepseek-v4-flash
 CODEX_MODEL ?= gpt-5.5
 N_CONCURRENT ?= 2
 LENOS_CONFIG = $(CURDIR)/agon_bench/lenos/config.json
 TASK_JOURNAL_NAME = $(if $(TASK),$(subst /,_,$(TASK)),manual)
 LENOS_JOURNAL_DIR ?= $(CURDIR)/agon_bench/results/lenos-journals/$(TASK_JOURNAL_NAME)
+JOB_TASK_NAME = $(if $(TASK),$(subst /,_,$(TASK)),dataset)
+LENOS_JOB_NAME ?= lenos-$(BENCHMARK)-$(JOB_TASK_NAME)-$(shell date +%Y%m%d%H%M%S)-$(shell shuf -i 1000-9999 -n1)
+CODEX_JOB_NAME ?= codex-$(BENCHMARK)-$(JOB_TASK_NAME)-$(shell date +%Y%m%d%H%M%S)-$(shell shuf -i 1000-9999 -n1)
 RELEASE_PROXY_URL ?= http://127.0.0.1:8765
 RELEASE_ARCH ?= x86_64
 EINAI_RELEASE_GOARCH ?= amd64
 LENOS_MOUNTS = {"type":"bind","source":"$(LENOS_CONFIG)","target":"/root/.config/lenos/config.json","read_only":true},{"type":"bind","source":"$(HOME)/.local/share/lenos","target":"/root/.local/share/lenos","read_only":true},{"type":"bind","source":"$(LENOS_JOURNAL_DIR)","target":"/app/.lenos/journals","read_only":false}
 LENOS_MOUNTS_JSON = [$(LENOS_MOUNTS)]
 
-harbor-run:          ## Run Lenos against TB 2.0 (TASK=org/name for one task, N_TASKS=n for subset)
+harbor-run:          ## Run Lenos against Terminal-Bench (defaults to TB 2.1)
 	@if [ -z "$(TASK)" ] && [ -z "$(N_TASKS)" ]; then \
 		echo "Usage: make harbor-run [MODEL=<model>] TASK=<org/task>"; \
 		echo "   or: make harbor-run [MODEL=<model>] N_TASKS=<n> [N_CONCURRENT=<n>]"; \
@@ -47,6 +51,7 @@ harbor-run:          ## Run Lenos against TB 2.0 (TASK=org/name for one task, N_
 	fi
 	mkdir -p "$(LENOS_JOURNAL_DIR)"
 	$(HARBOR_ENV) $(HARBOR) run -d "$(DATASET)" \
+		--job-name "$(LENOS_JOB_NAME)" \
 		--agent-import-path $(AGENT_PATH) \
 		-m $(MODEL) \
 		-n $(N_CONCURRENT) \
@@ -56,7 +61,7 @@ harbor-run:          ## Run Lenos against TB 2.0 (TASK=org/name for one task, N_
 		--mounts '$(LENOS_MOUNTS_JSON)' \
 		-y
 
-codex-run:           ## Run Codex CLI against TB 2.0 (uses CODEX_AUTH_JSON_PATH and proxy env)
+codex-run:           ## Run Codex CLI against Terminal-Bench (defaults to TB 2.1)
 	@if [ -z "$(TASK)" ] && [ -z "$(N_TASKS)" ]; then \
 		echo "Usage: make codex-run [CODEX_MODEL=<model>] TASK=<org/task>"; \
 		echo "   or: make codex-run [CODEX_MODEL=<model>] N_TASKS=<n> [N_CONCURRENT=<n>]"; \
@@ -68,6 +73,7 @@ codex-run:           ## Run Codex CLI against TB 2.0 (uses CODEX_AUTH_JSON_PATH 
 		exit 1; \
 	}
 	$(if $(LIBSTDCXX_OUT),LD_LIBRARY_PATH=$(LIBSTDCXX_OUT)/lib:$(LD_LIBRARY_PATH),) $(HARBOR) run -d "$(DATASET)" \
+		--job-name "$(CODEX_JOB_NAME)" \
 		-a codex \
 		-m $(CODEX_MODEL) \
 		-n $(N_CONCURRENT) \
@@ -86,14 +92,14 @@ codex-run:           ## Run Codex CLI against TB 2.0 (uses CODEX_AUTH_JSON_PATH 
 		--agent-kwarg reasoning_effort=$(CODEX_REASONING_EFFORT) \
 		-y
 
-scoreboard:          ## Rebuild local TB2 scoreboard from jobs/
+scoreboard:          ## Rebuild local Terminal-Bench scoreboard from jobs/
 	$(PYTHON) scripts/update_scoreboard.py
 
 scoreboard-check:    ## Smoke-check scoreboard scripts and summary rendering
 	$(PYTHON) -m py_compile scripts/update_scoreboard.py scripts/serve_scoreboard.py
-	$(PYTHON) -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard, update_scoreboard; payload = serve_scoreboard.live_payload(); summary = serve_scoreboard.comparison_summary(payload); summary_html = serve_scoreboard.render_summary_html(summary); scoreboard_html = update_scoreboard.render_html(payload); runs_html = update_scoreboard.render_runs_html(payload); assert summary["task_rows"], "expected at least one compared task"; assert "Estimated Dollar Cost" in summary_html; assert "Token Mix By Task" in summary_html; assert "cache hit input" in summary_html; assert "ratio good" in summary_html or "ratio bad" in summary_html; assert "result-icon" in summary_html; assert "Lenos $$" in summary_html; assert "Codex output" in summary_html; assert "Task Dashboard" in scoreboard_html; assert "Run Log" not in scoreboard_html; assert "Agon TB2 Run Log" in runs_html'
+	$(PYTHON) -c 'import sys; sys.path.insert(0, "scripts"); import serve_scoreboard, update_scoreboard; payload = serve_scoreboard.live_payload(); summary = serve_scoreboard.comparison_summary(payload); summary_html = serve_scoreboard.render_summary_html(summary); scoreboard_html = update_scoreboard.render_html(payload); runs_html = update_scoreboard.render_runs_html(payload); tb21 = update_scoreboard.filter_payload(payload, "tb2.1"); assert summary["task_rows"], "expected at least one compared task"; assert "Estimated Dollar Cost" in summary_html; assert "Token Mix By Task" in summary_html; assert "cache hit input" in summary_html; assert "ratio good" in summary_html or "ratio bad" in summary_html; assert "result-icon" in summary_html; assert "Lenos $$" in summary_html; assert "Codex output" in summary_html; assert "Task Dashboard" in scoreboard_html; assert "Run Log" not in scoreboard_html; assert "Agon Terminal-Bench Run Log" in runs_html; assert tb21["benchmark_label"] == "Terminal-Bench 2.1"'
 
-scoreboard-serve:    ## Serve live TB2 scoreboard from jobs/ without regenerating files
+scoreboard-serve:    ## Serve live Terminal-Bench scoreboard from jobs/ without regenerating files
 	$(PYTHON) scripts/serve_scoreboard.py
 
 test:                ## Run Python tests

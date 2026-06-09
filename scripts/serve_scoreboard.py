@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import update_scoreboard
 
@@ -32,6 +33,10 @@ def live_payload() -> dict:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "entries": update_scoreboard.collect_entries(),
     }
+
+
+def payload_for_benchmark(benchmark: str | None) -> dict:
+    return update_scoreboard.filter_payload(live_payload(), benchmark)
 
 
 def task_keys_with_both_harnesses(entries: list[dict]) -> list[str]:
@@ -120,6 +125,7 @@ def task_row_for(task: str, entries: list[dict]) -> dict:
 
 
 def comparison_summary(payload: dict) -> dict:
+    payload = update_scoreboard.filter_payload(payload, payload.get("benchmark"))
     tasks = task_keys_with_both_harnesses(payload["entries"])
     lenos_successes = [
         latest_entry(payload["entries"], task, "Lenos", successful=True)
@@ -172,18 +178,28 @@ def comparison_summary(payload: dict) -> dict:
     cost_ratio = lenos_cost / codex_cost if codex_cost else 0
     cost_delta, cost_word = ratio_delta_text(cost_ratio)
 
-    sentence = (
-        f"On the same {SUMMARY_MODEL} model with {SUMMARY_THINKING} thinking, "
-        f"Lenos has successful runs on {len(lenos_successes)}/{len(tasks)} shared "
-        f"tasks versus Codex CLI's {len(codex_successes)}/{len(tasks)}. On the "
-        f"{len(paired_success_rows)} tasks both solved, using the Codex-observed "
-        f"{SUMMARY_MODEL} rates, Lenos cost ${lenos_cost:.2f} versus Codex CLI's "
-        f"${codex_cost:.2f} ({cost_delta} {cost_word}); solved-task token ratio was "
-        f"{mean_token_ratio:.2f}x."
-    )
+    benchmark_label = payload.get("benchmark_label") or "the selected benchmark"
+    if not tasks:
+        sentence = (
+            f"On {benchmark_label}, no shared Lenos/Codex CLI {SUMMARY_MODEL} "
+            f"{SUMMARY_THINKING} runs have been recorded yet."
+        )
+    else:
+        sentence = (
+            f"On {benchmark_label}, using the same {SUMMARY_MODEL} model with "
+            f"{SUMMARY_THINKING} thinking, Lenos has successful runs on "
+            f"{len(lenos_successes)}/{len(tasks)} shared tasks versus Codex CLI's "
+            f"{len(codex_successes)}/{len(tasks)}. On the {len(paired_success_rows)} "
+            f"tasks both solved, using the Codex-observed {SUMMARY_MODEL} rates, "
+            f"Lenos cost ${lenos_cost:.2f} versus Codex CLI's ${codex_cost:.2f} "
+            f"({cost_delta} {cost_word}); solved-task token ratio was "
+            f"{mean_token_ratio:.2f}x."
+        )
     max_cost = max(lenos_cost, codex_cost, 1)
     return {
         "sentence": sentence,
+        "benchmark": payload.get("benchmark"),
+        "benchmark_label": payload.get("benchmark_label"),
         "model": SUMMARY_MODEL,
         "thinking": SUMMARY_THINKING,
         "shared_tasks": tasks,
@@ -318,6 +334,8 @@ def render_summary_html(summary: dict) -> str:
     lenos_cost = summary["estimated_cost"]["lenos"]
     codex_cost = summary["estimated_cost"]["codex_cli"]
     cost_ratio = summary["estimated_cost"]["ratio"]
+    benchmark = summary.get("benchmark") or "all"
+    query_suffix = update_scoreboard.benchmark_query_suffix(benchmark)
 
     task_rows = []
     token_chart_rows = []
@@ -642,7 +660,7 @@ def render_summary_html(summary: dict) -> str:
         <div class="stamp">Agon live summary / same {summary['model']} / {summary['thinking']} thinking</div>
         <h1>Lenos vs Codex CLI</h1>
         <p class="lede">{summary['sentence']}</p>
-        <p><a href="/agon_bench/results/tb2-scoreboard.html">Open full scoreboard</a> · <a href="/summary.json">JSON</a> · <a href="/summary.txt">plain text</a></p>
+        <p><a href="/agon_bench/results/tb2-scoreboard.html{query_suffix}">Open full scoreboard</a> · <a href="/summary?benchmark=tb2.1">TB2.1</a> · <a href="/summary?benchmark=tb2.0">TB2.0</a> · <a href="/summary">All</a> · <a href="/summary.json{query_suffix}">JSON</a> · <a href="/summary.txt{query_suffix}">plain text</a></p>
       </div>
       <aside class="panel scorecard">
         <div class="score"><span>Shared tasks</span><b>{shared_count}</b></div>
@@ -713,10 +731,11 @@ class ScoreboardHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/":
             self.send_response(HTTPStatus.FOUND)
-            self.send_header("Location", HTML_ROUTE)
+            self.send_header("Location", f"{HTML_ROUTE}?benchmark=tb2.1")
             self.end_headers()
             return
         if path == HTML_ROUTE:
@@ -739,8 +758,18 @@ class ScoreboardHandler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
+    def selected_benchmark(self) -> str | None:
+        parsed = urlparse(self.path)
+        values = parse_qs(parsed.query).get("benchmark")
+        if not values:
+            return None
+        benchmark = values[-1]
+        return benchmark if benchmark else None
+
     def respond_html(self) -> None:
-        body = update_scoreboard.render_html(live_payload()).encode("utf-8")
+        body = update_scoreboard.render_html(
+            payload_for_benchmark(self.selected_benchmark())
+        ).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -749,7 +778,9 @@ class ScoreboardHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def respond_summary(self) -> None:
-        body = render_summary_html(comparison_summary(live_payload())).encode("utf-8")
+        body = render_summary_html(
+            comparison_summary(payload_for_benchmark(self.selected_benchmark()))
+        ).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -758,7 +789,9 @@ class ScoreboardHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def respond_runs_html(self) -> None:
-        body = update_scoreboard.render_runs_html(live_payload()).encode("utf-8")
+        body = update_scoreboard.render_runs_html(
+            payload_for_benchmark(self.selected_benchmark())
+        ).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -767,7 +800,12 @@ class ScoreboardHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def respond_summary_text(self) -> None:
-        body = (comparison_summary(live_payload())["sentence"] + "\n").encode("utf-8")
+        body = (
+            comparison_summary(payload_for_benchmark(self.selected_benchmark()))[
+                "sentence"
+            ]
+            + "\n"
+        ).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -777,7 +815,11 @@ class ScoreboardHandler(SimpleHTTPRequestHandler):
 
     def respond_summary_json(self) -> None:
         body = (
-            json.dumps(comparison_summary(live_payload()), indent=2, ensure_ascii=False)
+            json.dumps(
+                comparison_summary(payload_for_benchmark(self.selected_benchmark())),
+                indent=2,
+                ensure_ascii=False,
+            )
             + "\n"
         ).encode("utf-8")
         self.send_response(HTTPStatus.OK)
@@ -789,7 +831,12 @@ class ScoreboardHandler(SimpleHTTPRequestHandler):
 
     def respond_json(self) -> None:
         body = (
-            json.dumps(live_payload(), indent=2, ensure_ascii=False) + "\n"
+            json.dumps(
+                payload_for_benchmark(self.selected_benchmark()),
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n"
         ).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json; charset=utf-8")

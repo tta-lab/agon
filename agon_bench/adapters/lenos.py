@@ -95,7 +95,7 @@ class LenosAgent(BaseInstalledAgent):
       ~/.local/share/lenos         → provider secrets and registry cache
 
     Run with:
-      harbor run -d "terminal-bench@2.0" \\
+      harbor run -d "terminal-bench/terminal-bench-2-1" \\
         --agent-import-path agon_bench.adapters.lenos:LenosAgent \\
         -m deepseek-v4-flash \\
         -t terminal-bench/hello-world \\

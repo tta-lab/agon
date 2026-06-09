@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a local TB2 smoke scoreboard from Harbor job directories."""
+"""Build a local Terminal-Bench smoke scoreboard from Harbor job directories."""
 
 from __future__ import annotations
 
@@ -29,6 +29,12 @@ STATUS_RANK = {
 }
 TB2_TOTAL_TASKS = 89
 PROBLEM_STATUSES = {"benchmark_leakage"}
+BENCHMARK_LABELS = {
+    "tb2.0": "Terminal-Bench 2.0",
+    "tb2.1": "Terminal-Bench 2.1",
+    "unknown": "Unknown benchmark",
+}
+DEFAULT_BENCHMARK = "all"
 
 
 def load_json(path: Path) -> dict:
@@ -63,6 +69,59 @@ def is_tb2_task(task_name: str | None) -> bool:
     if not task_name:
         return False
     return task_name.startswith("terminal-bench/") or not task_name.startswith("local/")
+
+
+def benchmark_label(benchmark: str | None) -> str:
+    if not benchmark or benchmark == "all":
+        return "All Terminal-Bench runs"
+    return BENCHMARK_LABELS.get(benchmark, benchmark)
+
+
+def benchmark_query_suffix(benchmark: str | None) -> str:
+    if not benchmark or benchmark == "all":
+        return ""
+    return f"?benchmark={benchmark}"
+
+
+def detect_benchmark(job_dir: Path, job_config: dict, trial_config: dict) -> str:
+    job_name = str(job_config.get("job_name") or job_dir.name).lower()
+    datasets = job_config.get("datasets") or []
+    dataset_text = json.dumps(datasets, sort_keys=True).lower()
+    tasks = job_config.get("tasks") or []
+    trial_task = trial_config.get("task")
+    task_text = json.dumps([*tasks, trial_task], sort_keys=True).lower()
+    combined = f"{job_name}\n{dataset_text}\n{task_text}"
+
+    if (
+        "terminal-bench-2-1" in combined
+        or "terminal-bench/terminal-bench-2-1" in combined
+        or "tb2.1" in combined
+        or "tb21" in combined
+    ):
+        return "tb2.1"
+    if "terminal-bench@2.0" in combined or "tb2.0" in combined or "tb20" in combined:
+        return "tb2.0"
+    if any(is_tb2_task((task or {}).get("name")) for task in tasks if isinstance(task, dict)):
+        return "tb2.0"
+    if isinstance(trial_task, dict) and is_tb2_task(trial_task.get("name")):
+        return "tb2.0"
+    return "unknown"
+
+
+def filter_entries(entries: list[dict], benchmark: str | None) -> list[dict]:
+    if not benchmark or benchmark == "all":
+        return entries
+    return [entry for entry in entries if entry.get("benchmark") == benchmark]
+
+
+def filter_payload(payload: dict, benchmark: str | None) -> dict:
+    selected = benchmark or DEFAULT_BENCHMARK
+    return {
+        **payload,
+        "benchmark": selected,
+        "benchmark_label": benchmark_label(selected),
+        "entries": filter_entries(payload.get("entries", []), selected),
+    }
 
 
 def task_metadata_index() -> dict[str, dict]:
@@ -230,6 +289,9 @@ def build_entry(
     task = config.get("task") or (job_config.get("tasks") or [{}])[0]
     task_name = result.get("task_name") or task.get("name")
     task_meta = metadata.get(task_name) or metadata.get(normalize_task_name(task_name)) or {}
+    benchmark = detect_benchmark(job_dir, job_config, config)
+    if benchmark == "unknown" and is_tb2_task(task_name):
+        benchmark = "tb2.0"
     agent_result = as_dict(result.get("agent_result"))
     usage = as_dict(as_dict(agent_result.get("metadata")).get("lenos_usage"))
     execution = as_dict(result.get("agent_execution"))
@@ -245,6 +307,8 @@ def build_entry(
         "trial": trial_dir.name,
         "task": task_name,
         "task_key": normalize_task_name(task_name),
+        "benchmark": benchmark,
+        "benchmark_label": benchmark_label(benchmark),
         "difficulty": task_meta.get("difficulty") or "unknown",
         "category": task_meta.get("category"),
         "model": agent.get("model_name"),
@@ -469,6 +533,7 @@ def render_run_rows(entries: list[dict]) -> str:
 
 
 def render_html(payload: dict) -> str:
+    payload = filter_payload(payload, payload.get("benchmark"))
     entries = payload["entries"]
     completed = [e for e in entries if e["reward"] is not None or e["exception"]]
     passed = sum(1 for e in completed if is_effective_pass(e))
@@ -519,13 +584,16 @@ def render_html(payload: dict) -> str:
         )
 
     generated_at = escape(payload["generated_at"])
+    selected_benchmark = payload.get("benchmark") or DEFAULT_BENCHMARK
+    selected_label = benchmark_label(selected_benchmark)
+    query_suffix = benchmark_query_suffix(selected_benchmark)
     data_json = escape(json.dumps(payload, ensure_ascii=False), quote=False)
     return f"""<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agon TB2 Local Scoreboard</title>
+  <title>Agon Terminal-Bench Local Scoreboard</title>
   <style>
     :root {{
       color-scheme: light;
@@ -744,11 +812,14 @@ def render_html(payload: dict) -> str:
 </head>
 <body>
   <header>
-    <h1>Agon TB2 Local Scoreboard</h1>
-    <div class="sub">Local run ledger for Lenos on terminal-bench@2.0. This is for smoke coverage and failure triage, not an official leaderboard submission. Generated at {generated_at}.</div>
+    <h1>Agon Terminal-Bench Local Scoreboard</h1>
+    <div class="sub">Local run ledger for {escape(selected_label)}. This is for smoke coverage and failure triage, not an official leaderboard submission. Generated at {generated_at}.</div>
     <nav class="nav">
-      <a href="./tb2-runs.html">Run log</a>
-      <a href="/summary">Lenos vs Codex summary</a>
+      <a href="./tb2-scoreboard.html?benchmark=tb2.1">TB2.1</a>
+      <a href="./tb2-scoreboard.html?benchmark=tb2.0">TB2.0</a>
+      <a href="./tb2-scoreboard.html">All</a>
+      <a href="./tb2-runs.html{query_suffix}">Run log</a>
+      <a href="/summary{query_suffix}">Lenos vs Codex summary</a>
       <a href="./tb2-scoreboard.json">JSON</a>
     </nav>
   </header>
@@ -843,8 +914,12 @@ def render_html(payload: dict) -> str:
 
 
 def render_runs_html(payload: dict) -> str:
+    payload = filter_payload(payload, payload.get("benchmark"))
     entries = payload["entries"]
     generated_at = escape(payload["generated_at"])
+    selected_benchmark = payload.get("benchmark") or DEFAULT_BENCHMARK
+    selected_label = benchmark_label(selected_benchmark)
+    query_suffix = benchmark_query_suffix(selected_benchmark)
     data_json = escape(json.dumps(payload, ensure_ascii=False), quote=False)
     rows = render_run_rows(entries)
     return f"""<!doctype html>
@@ -852,7 +927,7 @@ def render_runs_html(payload: dict) -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agon TB2 Run Log</title>
+  <title>Agon Terminal-Bench Run Log</title>
   <style>
     :root {{
       color-scheme: light;
@@ -937,11 +1012,14 @@ def render_runs_html(payload: dict) -> str:
 </head>
 <body>
   <header>
-    <h1>Agon TB2 Run Log</h1>
-    <div class="sub">Raw trial rows from jobs/* result files. Generated at {generated_at}.</div>
+    <h1>Agon Terminal-Bench Run Log</h1>
+    <div class="sub">Raw trial rows for {escape(selected_label)} from jobs/* result files. Generated at {generated_at}.</div>
     <nav class="nav">
-      <a href="./tb2-scoreboard.html">Task dashboard</a>
-      <a href="/summary">Lenos vs Codex summary</a>
+      <a href="./tb2-runs.html?benchmark=tb2.1">TB2.1</a>
+      <a href="./tb2-runs.html?benchmark=tb2.0">TB2.0</a>
+      <a href="./tb2-runs.html">All</a>
+      <a href="./tb2-scoreboard.html{query_suffix}">Task dashboard</a>
+      <a href="/summary{query_suffix}">Lenos vs Codex summary</a>
       <a href="./tb2-scoreboard.json">JSON</a>
     </nav>
   </header>

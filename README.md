@@ -1,13 +1,13 @@
 # Agon
 
-Terminal-Bench 2.0 arena for measuring [Lenos](https://github.com/tta-lab/lenos)
+Terminal-Bench 2.1 arena for measuring [Lenos](https://github.com/tta-lab/lenos)
 on real terminal tasks, powered by the [Harbor](https://github.com/laude-institute/harbor)
 framework.
 
 ## What this repo contains
 
 A single Harbor **agent adapter** (`agon_bench/adapters/lenos.py`) that teaches
-Harbor how to install and run Lenos inside any TB 2.0 task container.
+Harbor how to install and run Lenos inside any Terminal-Bench task container.
 
 Harbor handles everything else: container orchestration, task provisioning,
 verification, and result collection.
@@ -26,8 +26,8 @@ verification, and result collection.
 ## Quickstart
 
 ```bash
-# Run Lenos against a single TB 2.0 task
-uv run harbor run -d "terminal-bench@2.0" \
+# Run Lenos against a single TB 2.1 task
+uv run harbor run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -37,6 +37,10 @@ uv run harbor run -d "terminal-bench@2.0" \
 # Or use make (convenience wrapper)
 make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/hello-world
 ```
+
+`make harbor-run` and `make codex-run` default to `BENCHMARK=tb2.1` and
+`DATASET=terminal-bench/terminal-bench-2-1`. To run TB2.0 explicitly, pass
+`BENCHMARK=tb2.0 DATASET=terminal-bench@2.0`.
 
 ## How it works
 
@@ -61,7 +65,7 @@ make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/hello-world
 cp -r agon_bench/adapters /path/to/your/project/
 
 # Then run from your project directory
-uv run harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -73,7 +77,7 @@ uv run harbor run -d "terminal-bench@2.0" \
 
 ```bash
 # Run matching tasks from the dataset
-uv run harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   --include-task-name "python-*" \
@@ -82,7 +86,7 @@ uv run harbor run -d "terminal-bench@2.0" \
   -y
 
 # Run the full dataset
-uv run harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   --mounts "[{\"type\":\"bind\",\"source\":\"${PWD}/agon_bench/lenos/config.json\",\"target\":\"/root/.config/lenos/config.json\",\"read_only\":true},{\"type\":\"bind\",\"source\":\"${HOME}/.local/share/lenos\",\"target\":\"/root/.local/share/lenos\",\"read_only\":true}]" \
