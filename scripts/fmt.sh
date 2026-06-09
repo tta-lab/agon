@@ -6,16 +6,16 @@ echo "=== Agon: Format ==="
 PYTHON_FORMATTED=0
 SHELL_FORMATTED=0
 if command -v uv &>/dev/null; then
-  uv run ruff format agon_bench/ tests/ && PYTHON_FORMATTED=1
+	uv run ruff format agon_bench/ tests/ && PYTHON_FORMATTED=1
 else
-  echo "(uv not installed, skip Python format)"
+	echo "(uv not installed, skip Python format)"
 fi
 if command -v shfmt &>/dev/null; then
-  shopt -s globstar nullglob
-  shfmt -w agon_bench/**/*.sh scripts/*.sh && SHELL_FORMATTED=1
+	shopt -s globstar nullglob
+	shfmt -w agon_bench/**/*.sh scripts/*.sh && SHELL_FORMATTED=1
 else
-  echo "(shfmt not installed, skip shell format)"
+	echo "(shfmt not installed, skip shell format)"
 fi
 if [ $PYTHON_FORMATTED -eq 0 ] && [ $SHELL_FORMATTED -eq 0 ]; then
-  echo "No formatters installed. Install uv and shfmt for formatting."
+	echo "No formatters installed. Install uv and shfmt for formatting."
 fi
