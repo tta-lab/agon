@@ -29,6 +29,7 @@ DATASET ?= terminal-bench/terminal-bench-2-1
 MODEL ?= deepseek-v4-flash
 CODEX_MODEL ?= gpt-5.5
 N_CONCURRENT ?= 2
+N_ATTEMPTS ?= 1
 LENOS_CONFIG = $(CURDIR)/agon_bench/lenos/config.json
 TASK_JOURNAL_NAME = $(if $(TASK),$(subst /,_,$(TASK)),manual)
 LENOS_JOURNAL_DIR ?= $(CURDIR)/agon_bench/results/lenos-journals/$(TASK_JOURNAL_NAME)
@@ -44,7 +45,7 @@ LENOS_MOUNTS_JSON = [$(LENOS_MOUNTS)]
 harbor-run:          ## Run Lenos against Terminal-Bench (defaults to TB 2.1)
 	@if [ -z "$(TASK)" ] && [ -z "$(N_TASKS)" ]; then \
 		echo "Usage: make harbor-run [MODEL=<model>] TASK=<org/task>"; \
-		echo "   or: make harbor-run [MODEL=<model>] N_TASKS=<n> [N_CONCURRENT=<n>]"; \
+		echo "   or: make harbor-run [MODEL=<model>] N_TASKS=<n> [N_CONCURRENT=<n>] [N_ATTEMPTS=<n>]"; \
 		echo "Example: make harbor-run TASK=terminal-bench/headless-terminal"; \
 		echo "Example: make harbor-run N_TASKS=4 N_CONCURRENT=2"; \
 		exit 1; \
@@ -54,6 +55,7 @@ harbor-run:          ## Run Lenos against Terminal-Bench (defaults to TB 2.1)
 		--job-name "$(LENOS_JOB_NAME)" \
 		--agent-import-path $(AGENT_PATH) \
 		-m $(MODEL) \
+		-k $(N_ATTEMPTS) \
 		-n $(N_CONCURRENT) \
 		$(if $(TIMEOUT_MULTIPLIER),--timeout-multiplier $(TIMEOUT_MULTIPLIER),) \
 		$(if $(TASK),-t $(TASK),) \
@@ -64,7 +66,7 @@ harbor-run:          ## Run Lenos against Terminal-Bench (defaults to TB 2.1)
 codex-run:           ## Run Codex CLI against Terminal-Bench (defaults to TB 2.1)
 	@if [ -z "$(TASK)" ] && [ -z "$(N_TASKS)" ]; then \
 		echo "Usage: make codex-run [CODEX_MODEL=<model>] TASK=<org/task>"; \
-		echo "   or: make codex-run [CODEX_MODEL=<model>] N_TASKS=<n> [N_CONCURRENT=<n>]"; \
+		echo "   or: make codex-run [CODEX_MODEL=<model>] N_TASKS=<n> [N_CONCURRENT=<n>] [N_ATTEMPTS=<n>]"; \
 		echo "Example: make codex-run CODEX_MODEL=gpt-5.5 TASK=terminal-bench/overfull-hbox"; \
 		exit 1; \
 	fi
@@ -76,6 +78,7 @@ codex-run:           ## Run Codex CLI against Terminal-Bench (defaults to TB 2.1
 		--job-name "$(CODEX_JOB_NAME)" \
 		-a codex \
 		-m $(CODEX_MODEL) \
+		-k $(N_ATTEMPTS) \
 		-n $(N_CONCURRENT) \
 		$(if $(TIMEOUT_MULTIPLIER),--timeout-multiplier $(TIMEOUT_MULTIPLIER),) \
 		$(if $(TASK),-t $(TASK),) \
