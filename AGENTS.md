@@ -1,11 +1,11 @@
 # Agon — Agent Guide
 
-Agon is a Terminal-Bench 2.0 arena for measuring Lenos against real terminal
+Agon is a Terminal-Bench 2.1 arena for measuring Lenos against real terminal
 tasks, powered by the [Harbor](https://github.com/laude-institute/harbor)
 framework.
 
 The purpose is not only to produce a leaderboard number. The working goal is to
-run TB2 tasks one by one, learn where Lenos wastes time or fails, and keep a
+run Terminal-Bench tasks one by one, learn where Lenos wastes time or fails, and keep a
 clear trail from task result to model behavior to possible Lenos improvement.
 Official verifier results stay official; local judgement and investigation notes
 are recorded separately.
@@ -26,15 +26,15 @@ agon_bench/
 A single Python file. Harbor handles everything else — container orchestration,
 task provisioning, verification, results.
 
-The adapter teaches Harbor how to install and run Lenos inside any TB 2.0
+The adapter teaches Harbor how to install and run Lenos inside any Terminal-Bench
 task container. Harbor provisions the container, calls `install()`, then
 calls `run(instruction)`, then runs the task's test suite.
 
 ## Essential Commands
 
 ```bash
-# Run Lenos against a single TB 2.0 task
-harbor run -d "terminal-bench@2.0" \
+# Run Lenos against a single TB 2.1 task
+uv run harbor run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -51,16 +51,34 @@ make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/fix-git \
 # Rebuild the local task dashboard from jobs/
 make scoreboard
 
+# Serve the live dashboard; use ?benchmark=tb2.1 or ?benchmark=tb2.0
+make scoreboard-serve
+
+# Validate a Lenos ATIF trajectory artifact
+make validate-trajectory TRAJECTORY=/path/to/trajectory.json
+
 # Format and lint
 make fmt
 make lint
 ```
 
+## Local Terminal-Bench Cache
+
+Keep downloaded TB2.1 task definitions under `.agon-cache/tb2.1/`, which is
+gitignored:
+
+```bash
+uv run harbor download terminal-bench/terminal-bench-2-1 -o .agon-cache/tb2.1 --export
+```
+
+Use this cache to inspect task names, metadata, timeouts, and instructions
+without downloading the dataset again. Do not commit downloaded task contents.
+
 ## Evaluation Workflow
 
 Use Agon as a task-by-task lab before attempting full-suite or leaderboard runs.
 
-1. Pick a small task or a small batch from `terminal-bench@2.0`.
+1. Pick a small task or a small batch from `terminal-bench/terminal-bench-2-1`.
 2. Run with `make harbor-run`, normally `MODEL=deepseek-v4-flash`.
 3. Rebuild the local dashboard with `make scoreboard`.
 4. Inspect failed or near-passed runs through `jobs/<job>/<trial>/agent/lenos.txt`
@@ -71,10 +89,21 @@ Use Agon as a task-by-task lab before attempting full-suite or leaderboard runs.
 6. Keep running cases. Implement fixes later from the strongest repeated
    findings.
 
+When increasing paired Lenos/Codex coverage, track coverage at the task level:
+a shared task means the same `terminal-bench/<task>` has at least one Lenos run
+and at least one Codex CLI run for the same model/effort comparison. Harbor's
+`-n/--n-concurrent` controls concurrent trials inside one Harbor job, not
+parallelism across different task names. For cross-task batches, use an outer
+runner such as `xargs -P2` and keep each single-task Harbor invocation at
+`-n 1`. Always pass a unique `--job-name` for each outer-parallel Harbor
+invocation; Harbor's default timestamp job name can collide when two jobs start
+in the same second.
+
 The local scoreboard is for smoke coverage and triage. It is not an official
-leaderboard submission. Manual labels such as `near_pass_95` may appear in
-`tb2-scoreboard-notes.json`, but they must not overwrite official `reward`,
-`classification`, or verifier data.
+leaderboard submission. Use `?benchmark=tb2.1` for the new run set and
+`?benchmark=tb2.0` for old comparison data. Manual labels such as
+`near_pass_95` may appear in `tb2-scoreboard-notes.json`, but they must not
+overwrite official `reward`, `classification`, or verifier data.
 
 Official leaderboard-style runs have stricter constraints:
 
@@ -92,11 +121,12 @@ Official leaderboard-style runs have stricter constraints:
 
 ## Adapter — run() lifecycle
 
-1. Escape instruction, build model flag from `self.model_name`
-2. Execute: `lenos run -m <model> --usage-json /logs/agent/usage-summary.json <instruction>`
-3. Output teed to `/logs/agent/lenos.txt`
-4. Parse Lenos' usage summary into Harbor context metadata
-5. Harbor runs the task's test suite after `run()` completes
+1. Build model, reasoning, sandbox, and extra CLI flags.
+2. Write the Harbor instruction to `/tmp/agon-task.md`.
+3. Execute: `lenos run -m <model> --context-file /tmp/agon-task.md --trajectory-json /logs/agent/trajectory.json Start.`
+4. Output teed to `/logs/agent/lenos.txt`.
+5. Parse Lenos' ATIF `final_metrics` into Harbor context metadata.
+6. Harbor runs the task's test suite after `run()` completes.
 
 ## Credentials and Secrets
 
@@ -117,6 +147,11 @@ Lenos uses the temenos SDK directly (no daemon). The adapter writes a minimal
 temenos config that allows read access to binary paths, the workspace, `/tmp`,
 and the non-secret `/root/.config/lenos` config. Write access is limited to
 `/app`, `/workspace`, and `/tmp`.
+
+For local TB2 smoke runs, `make harbor-run` currently sets
+`LENOS_NO_SANDBOX=1`, so the adapter passes `lenos run --no-sandbox`. This is a
+run-time choice, not part of `agon_bench/lenos/config.json`. Use
+`LENOS_NO_SANDBOX=0` when testing the Temenos policy itself.
 
 Never add `/root/.local/share/lenos` to Temenos `allow_read`. That directory is
 mounted for the Lenos process so it can load provider credentials, but it
@@ -151,7 +186,7 @@ specific failure.
 The adapter lives in this repo but is used via `--agent-import-path`:
 
 ```bash
-harbor run -d "terminal-bench@2.0" \
+uv run harbor run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -187,6 +222,7 @@ scoreboard notes, commits, or PR descriptions.
 
 ## Code Conventions
 
-- **Python**: ruff for format and lint. No type annotations on internal functions.
+- **Python**: use `uv run python`, `uv run pytest`, and `uv run ruff`.
+  No type annotations on internal functions.
   Single module per adapter.
 - **Shell**: `set -euo pipefail`. `[[ ]]` for conditionals. Lowercase local vars.

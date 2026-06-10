@@ -8,6 +8,7 @@ Mount your host lenos config into the container:
 `~/.local/share/lenos/config.json` contains host provider secrets; do not read it.
 """
 
+import base64
 import json
 import os
 import shlex
@@ -26,6 +27,7 @@ DEFAULT_ORGANON_VERSION = "latest"
 DEFAULT_EINAI_VERSION = "v0.1.0"
 DEEPSEEK_REASONING_EFFORT = "xhigh"
 LENOS_REASONING_EFFORT = os.environ.get("LENOS_REASONING_EFFORT")
+LENOS_NO_SANDBOX = os.environ.get("LENOS_NO_SANDBOX", "")
 
 LENOS_VERSION = os.environ.get("LENOS_VERSION", DEFAULT_LENOS_VERSION)
 LENOS_RELEASE_BASE = os.environ.get(
@@ -76,7 +78,13 @@ allow_write = [
 ]
 """
 
-USAGE_SUMMARY_PATH = "/logs/agent/usage-summary.json"
+TRAJECTORY_PATH = "/logs/agent/trajectory.json"
+TASK_CONTEXT_PATH = "/tmp/agon-task.md"
+TASK_TRIGGER = "Start."
+
+
+def _env_enabled(value: str | None) -> bool:
+    return bool(value) and value.lower() not in {"0", "false", "no", "off"}
 
 
 class LenosAgent(BaseInstalledAgent):
@@ -87,7 +95,7 @@ class LenosAgent(BaseInstalledAgent):
       ~/.local/share/lenos         → provider secrets and registry cache
 
     Run with:
-      harbor run -d "terminal-bench@2.0" \\
+      harbor run -d "terminal-bench/terminal-bench-2-1" \\
         --agent-import-path agon_bench.adapters.lenos:LenosAgent \\
         -m deepseek-v4-flash \\
         -t terminal-bench/hello-world \\
@@ -123,6 +131,12 @@ class LenosAgent(BaseInstalledAgent):
         if not model_name.split("/", 1)[-1].startswith("deepseek"):
             return ""
         return f" --reasoning-effort {shlex.quote(DEEPSEEK_REASONING_EFFORT)}"
+
+    @staticmethod
+    def _sandbox_flag() -> str:
+        if _env_enabled(LENOS_NO_SANDBOX):
+            return " --no-sandbox"
+        return ""
 
     async def install(self, environment: BaseEnvironment) -> None:
         # Install system dependencies for sandboxing
@@ -263,21 +277,28 @@ class LenosAgent(BaseInstalledAgent):
         environment: BaseEnvironment,
         context: AgentContext,
     ) -> None:
-        escaped_instruction = shlex.quote(instruction)
         model_flag = ""
         if self.model_name:
             model_flag = f" -m {shlex.quote(self.model_name)}"
         reasoning_flag = self._reasoning_flag_for_model(self.model_name)
+        sandbox_flag = self._sandbox_flag()
 
         cli_flags = self.build_cli_flags()
         extra_flags = f" {cli_flags}" if cli_flags else ""
+        task_context = self._task_context(instruction)
+
+        await self.exec_as_agent(
+            environment,
+            command=self._write_task_context_command(task_context),
+        )
 
         run_cmd = (
             "set -o pipefail; "
             "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
-            f"lenos run{model_flag}{reasoning_flag}{extra_flags} "
-            f"--usage-json {shlex.quote(USAGE_SUMMARY_PATH)} "
-            f"{escaped_instruction} "
+            f"lenos run{model_flag}{reasoning_flag}{sandbox_flag}{extra_flags} "
+            f"--context-file {shlex.quote(TASK_CONTEXT_PATH)} "
+            f"--trajectory-json {shlex.quote(TRAJECTORY_PATH)} "
+            f"{shlex.quote(TASK_TRIGGER)} "
             "2>&1 | tee /logs/agent/lenos.txt"
         )
         await self.exec_as_agent(
@@ -287,43 +308,82 @@ class LenosAgent(BaseInstalledAgent):
 
         result = await self.exec_as_agent(
             environment,
-            command=f"cat {shlex.quote(USAGE_SUMMARY_PATH)}",
+            command=f"cat {shlex.quote(TRAJECTORY_PATH)}",
         )
-        self._populate_usage_context(context, result.stdout)
+        self._populate_trajectory_context(context, result.stdout)
 
-    def _populate_usage_context(self, context: AgentContext, stdout: str) -> None:
+    @staticmethod
+    def _task_context(instruction: str) -> str:
+        return instruction.strip() + "\n"
+
+    @staticmethod
+    def _write_task_context_command(task_context: str) -> str:
+        encoded = base64.b64encode(task_context.encode("utf-8")).decode("ascii")
+        script = (
+            "import base64\n"
+            "from pathlib import Path\n"
+            f"Path({TASK_CONTEXT_PATH!r}).write_bytes(base64.b64decode({encoded!r}))\n"
+        )
+        return f"python3 - <<'PY'\n{script}PY"
+
+    def _populate_trajectory_context(self, context: AgentContext, stdout: str) -> None:
         lines = [line.strip() for line in stdout.splitlines() if line.strip()]
         if not lines:
             return
 
         try:
-            summary = json.loads("\n".join(lines))
+            trajectory = json.loads("\n".join(lines))
         except json.JSONDecodeError:
             try:
-                summary = json.loads(lines[-1])
+                trajectory = json.loads(lines[-1])
             except json.JSONDecodeError:
                 return
 
-        self._apply_usage_summary(context, summary)
+        self._apply_atif_trajectory(context, trajectory)
 
-    def _apply_usage_summary(self, context: AgentContext, summary: dict) -> None:
-        context.n_input_tokens = summary["input_tokens"]
-        context.n_cache_tokens = summary["input_cache_hit_tokens"]
-        context.n_output_tokens = summary["output_tokens"]
-        context.cost_usd = summary.get("cost_usd")
+    def _apply_atif_trajectory(self, context: AgentContext, trajectory: dict) -> None:
+        final_metrics = trajectory.get("final_metrics")
+        if not isinstance(final_metrics, dict):
+            return
+        extra = final_metrics.get("extra") or {}
+        cost_usd = final_metrics.get("total_cost_usd")
+        input_tokens = final_metrics.get("total_prompt_tokens")
+        cache_hit_tokens = final_metrics.get("total_cached_tokens")
+        output_tokens = final_metrics.get("total_completion_tokens")
+        total_tokens = extra.get("total_tokens")
+        if (
+            total_tokens is None
+            and input_tokens is not None
+            and output_tokens is not None
+        ):
+            total_tokens = input_tokens + output_tokens
+        summary = {
+            "input_tokens": input_tokens,
+            "input_cache_hit_tokens": cache_hit_tokens,
+            "input_cache_miss_tokens": extra.get("cache_miss_tokens"),
+            "cache_creation_tokens": extra.get("cache_creation_tokens"),
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+            "cost_usd": cost_usd,
+        }
+        context.n_input_tokens = input_tokens
+        context.n_cache_tokens = cache_hit_tokens
+        context.n_output_tokens = output_tokens
+        context.cost_usd = cost_usd
         context.metadata = {
             **(context.metadata or {}),
+            "lenos_atif": trajectory,
             "lenos_usage": summary,
-            "lenos_cost_usd": summary.get("cost_usd"),
+            "lenos_cost_usd": cost_usd,
         }
 
     def populate_context_post_run(self, context: AgentContext) -> None:
-        path = self.logs_dir / "usage-summary.json"
+        path = self.logs_dir / "trajectory.json"
         if not path.exists():
             return
 
         try:
-            summary = json.loads(path.read_text(encoding="utf-8"))
-            self._apply_usage_summary(context, summary)
+            trajectory = json.loads(path.read_text(encoding="utf-8"))
+            self._apply_atif_trajectory(context, trajectory)
         except (OSError, KeyError, json.JSONDecodeError):
-            self.logger.exception("Failed to parse Lenos usage summary")
+            self.logger.exception("Failed to parse Lenos ATIF trajectory")
