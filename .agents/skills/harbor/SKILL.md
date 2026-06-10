@@ -19,7 +19,7 @@ Harbor flags move. Check `harbor run --help` before changing docs or scripts.
 Single registry task:
 
 ```bash
-$HARBOR run -d "terminal-bench-2.0==head" \
+$HARBOR run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   -t terminal-bench/hello-world \
@@ -30,7 +30,7 @@ $HARBOR run -d "terminal-bench-2.0==head" \
 Dataset subset:
 
 ```bash
-$HARBOR run -d "terminal-bench-2.0==head" \
+$HARBOR run -d "terminal-bench/terminal-bench-2-1" \
   --agent-import-path agon_bench.adapters.lenos:LenosAgent \
   -m deepseek-v4-flash \
   --include-task-name "python-*" \
@@ -142,9 +142,10 @@ Agon mounts two Lenos paths into the task container:
 
 Never add `/root/.local/share/lenos` to the Temenos sandbox `allow_read`. Do not pass provider secret env vars such as `OPENAI_*`, `ANTHROPIC_*`, `DEEPSEEK_*`, or `GOOGLE_*` into the Temenos sandbox without explicit review.
 
-The Agon adapter installs Lenos and Organon tools, passes
-`--usage-json /logs/agent/usage-summary.json` to `lenos run`, and parses that
-final summary into Harbor context metadata. Check `Makefile` and
+The Agon adapter installs Lenos and Organon tools, writes the Harbor instruction
+to `/tmp/agon-task.md`, passes
+`--trajectory-json /logs/agent/trajectory.json` to `lenos run`, and parses ATIF
+`final_metrics` into Harbor context metadata. Check `Makefile` and
 `agon_bench/adapters/lenos.py` for the current default versions and reasoning
 effort; these move during smoke work. Keep `python3` available as a general
 task-solving utility, but do not reintroduce a Python `post_step` hook or
@@ -163,5 +164,5 @@ Before claiming Harbor docs or scripts are correct:
 $HARBOR run --help
 make lint
 git diff --check
-rg -n -- "--task-id|--task-ids| -v |lenos run --quiet" README.md AGENTS.md agon_bench/adapters/lenos.py Makefile
+rg -n -- "--task-id|--task-ids| -v |lenos run --quiet|usage-summary" README.md AGENTS.md agon_bench/adapters/lenos.py Makefile
 ```

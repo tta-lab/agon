@@ -54,6 +54,9 @@ make scoreboard
 # Serve the live dashboard; use ?benchmark=tb2.1 or ?benchmark=tb2.0
 make scoreboard-serve
 
+# Validate a Lenos ATIF trajectory artifact
+make validate-trajectory TRAJECTORY=/path/to/trajectory.json
+
 # Format and lint
 make fmt
 make lint
@@ -118,11 +121,12 @@ Official leaderboard-style runs have stricter constraints:
 
 ## Adapter — run() lifecycle
 
-1. Escape instruction, build model flag from `self.model_name`
-2. Execute: `lenos run -m <model> --usage-json /logs/agent/usage-summary.json <instruction>`
-3. Output teed to `/logs/agent/lenos.txt`
-4. Parse Lenos' usage summary into Harbor context metadata
-5. Harbor runs the task's test suite after `run()` completes
+1. Build model, reasoning, sandbox, and extra CLI flags.
+2. Write the Harbor instruction to `/tmp/agon-task.md`.
+3. Execute: `lenos run -m <model> --context-file /tmp/agon-task.md --trajectory-json /logs/agent/trajectory.json Start.`
+4. Output teed to `/logs/agent/lenos.txt`.
+5. Parse Lenos' ATIF `final_metrics` into Harbor context metadata.
+6. Harbor runs the task's test suite after `run()` completes.
 
 ## Credentials and Secrets
 

@@ -36,6 +36,9 @@ uv run harbor run -d "terminal-bench/terminal-bench-2-1" \
 
 # Or use make (convenience wrapper)
 make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/hello-world
+
+# Validate a Lenos ATIF trajectory artifact
+make validate-trajectory TRAJECTORY=/path/to/trajectory.json
 ```
 
 `make harbor-run` and `make codex-run` default to `BENCHMARK=tb2.1` and
@@ -51,11 +54,11 @@ make harbor-run MODEL=deepseek-v4-flash TASK=terminal-bench/hello-world
    container — API keys stay out of the repo and are never baked into images
    or env vars
 4. Harbor passes the task instruction to the adapter's `run()` method
-5. `lenos run -m <model> --usage-json /logs/agent/usage-summary.json <instruction>`
-   executes inside the container. Set reasoning with
-   `LENOS_REASONING_EFFORT=<level>` when needed. The Makefile passes
-   `--no-sandbox` by default for TB2 smoke runs; override with
-   `LENOS_NO_SANDBOX=0` to test the Temenos sandbox path.
+5. The adapter writes the Harbor instruction to `/tmp/agon-task.md`, then runs
+   `lenos run -m <model> --context-file /tmp/agon-task.md --trajectory-json /logs/agent/trajectory.json Start.`
+   inside the container. Set reasoning with `LENOS_REASONING_EFFORT=<level>`
+   when needed. The Makefile passes `--no-sandbox` by default for TB2 smoke
+   runs; override with `LENOS_NO_SANDBOX=0` to test the Temenos sandbox path.
 6. Harbor runs the task's test script and records the result
 
 ## Adding the adapter to your project

@@ -1,7 +1,7 @@
 # Agon — Terminal-Bench 2.0 arena for Lenos evaluation via Harbor.
 # Harbor handles container orchestration, task provisioning, and results.
 # The only Agon-specific code is the Lenos agent adapter.
-.PHONY: harbor-run codex-run scoreboard scoreboard-check scoreboard-serve release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch test fmt lint help
+.PHONY: harbor-run codex-run scoreboard scoreboard-check scoreboard-serve validate-trajectory release-proxy-install release-proxy-start release-proxy-status release-proxy-prefetch test fmt lint help
 
 UV ?= uv
 PYTHON ?= $(UV) run python
@@ -104,6 +104,10 @@ scoreboard-check:    ## Smoke-check scoreboard scripts and summary rendering
 
 scoreboard-serve:    ## Serve live Terminal-Bench scoreboard from jobs/ without regenerating files
 	$(PYTHON) scripts/serve_scoreboard.py
+
+validate-trajectory: ## Validate an ATIF trajectory JSON file: make validate-trajectory TRAJECTORY=/path/to/trajectory.json
+	@test -n "$(TRAJECTORY)" || { echo "Usage: make validate-trajectory TRAJECTORY=/path/to/trajectory.json"; exit 1; }
+	$(PYTHON) -m harbor.utils.trajectory_validator "$(TRAJECTORY)"
 
 test:                ## Run Python tests
 	$(PYTEST)

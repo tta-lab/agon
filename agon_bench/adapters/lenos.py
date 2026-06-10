@@ -8,10 +8,10 @@ Mount your host lenos config into the container:
 `~/.local/share/lenos/config.json` contains host provider secrets; do not read it.
 """
 
+import base64
 import json
 import os
 import shlex
-import base64
 
 from harbor.agents.installed.base import (
     BaseInstalledAgent,
@@ -78,7 +78,7 @@ allow_write = [
 ]
 """
 
-USAGE_SUMMARY_PATH = "/logs/agent/usage-summary.json"
+TRAJECTORY_PATH = "/logs/agent/trajectory.json"
 TASK_CONTEXT_PATH = "/tmp/agon-task.md"
 TASK_TRIGGER = "Start."
 
@@ -297,7 +297,7 @@ class LenosAgent(BaseInstalledAgent):
             "export LENOS_DISABLE_PROVIDER_AUTO_UPDATE=1; "
             f"lenos run{model_flag}{reasoning_flag}{sandbox_flag}{extra_flags} "
             f"--context-file {shlex.quote(TASK_CONTEXT_PATH)} "
-            f"--usage-json {shlex.quote(USAGE_SUMMARY_PATH)} "
+            f"--trajectory-json {shlex.quote(TRAJECTORY_PATH)} "
             f"{shlex.quote(TASK_TRIGGER)} "
             "2>&1 | tee /logs/agent/lenos.txt"
         )
@@ -308,9 +308,9 @@ class LenosAgent(BaseInstalledAgent):
 
         result = await self.exec_as_agent(
             environment,
-            command=f"cat {shlex.quote(USAGE_SUMMARY_PATH)}",
+            command=f"cat {shlex.quote(TRAJECTORY_PATH)}",
         )
-        self._populate_usage_context(context, result.stdout)
+        self._populate_trajectory_context(context, result.stdout)
 
     @staticmethod
     def _task_context(instruction: str) -> str:
@@ -326,39 +326,62 @@ class LenosAgent(BaseInstalledAgent):
         )
         return f"python3 - <<'PY'\n{script}PY"
 
-    def _populate_usage_context(self, context: AgentContext, stdout: str) -> None:
+    def _populate_trajectory_context(self, context: AgentContext, stdout: str) -> None:
         lines = [line.strip() for line in stdout.splitlines() if line.strip()]
         if not lines:
             return
 
         try:
-            summary = json.loads("\n".join(lines))
+            trajectory = json.loads("\n".join(lines))
         except json.JSONDecodeError:
             try:
-                summary = json.loads(lines[-1])
+                trajectory = json.loads(lines[-1])
             except json.JSONDecodeError:
                 return
 
-        self._apply_usage_summary(context, summary)
+        self._apply_atif_trajectory(context, trajectory)
 
-    def _apply_usage_summary(self, context: AgentContext, summary: dict) -> None:
-        context.n_input_tokens = summary["input_tokens"]
-        context.n_cache_tokens = summary["input_cache_hit_tokens"]
-        context.n_output_tokens = summary["output_tokens"]
-        context.cost_usd = summary.get("cost_usd")
+    def _apply_atif_trajectory(self, context: AgentContext, trajectory: dict) -> None:
+        final_metrics = trajectory["final_metrics"]
+        extra = final_metrics.get("extra") or {}
+        cost_usd = final_metrics.get("total_cost_usd")
+        input_tokens = final_metrics.get("total_prompt_tokens")
+        cache_hit_tokens = final_metrics.get("total_cached_tokens")
+        output_tokens = final_metrics.get("total_completion_tokens")
+        total_tokens = extra.get("total_tokens")
+        if (
+            total_tokens is None
+            and input_tokens is not None
+            and output_tokens is not None
+        ):
+            total_tokens = input_tokens + output_tokens
+        summary = {
+            "input_tokens": input_tokens,
+            "input_cache_hit_tokens": cache_hit_tokens,
+            "input_cache_miss_tokens": extra.get("cache_miss_tokens"),
+            "cache_creation_tokens": extra.get("cache_creation_tokens"),
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+            "cost_usd": cost_usd,
+        }
+        context.n_input_tokens = input_tokens
+        context.n_cache_tokens = cache_hit_tokens
+        context.n_output_tokens = output_tokens
+        context.cost_usd = cost_usd
         context.metadata = {
             **(context.metadata or {}),
+            "lenos_atif": trajectory,
             "lenos_usage": summary,
-            "lenos_cost_usd": summary.get("cost_usd"),
+            "lenos_cost_usd": cost_usd,
         }
 
     def populate_context_post_run(self, context: AgentContext) -> None:
-        path = self.logs_dir / "usage-summary.json"
+        path = self.logs_dir / "trajectory.json"
         if not path.exists():
             return
 
         try:
-            summary = json.loads(path.read_text(encoding="utf-8"))
-            self._apply_usage_summary(context, summary)
+            trajectory = json.loads(path.read_text(encoding="utf-8"))
+            self._apply_atif_trajectory(context, trajectory)
         except (OSError, KeyError, json.JSONDecodeError):
-            self.logger.exception("Failed to parse Lenos usage summary")
+            self.logger.exception("Failed to parse Lenos ATIF trajectory")
