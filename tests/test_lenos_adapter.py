@@ -142,6 +142,25 @@ class LenosAdapterTest(unittest.TestCase):
         self.assertEqual(context.n_cache_tokens, 20)
         self.assertEqual(context.n_output_tokens, 5)
 
+    def test_populate_trajectory_context_ignores_missing_final_metrics(self):
+        context = SimpleNamespace(
+            n_input_tokens=None,
+            n_cache_tokens=None,
+            n_output_tokens=None,
+            cost_usd=None,
+            metadata={},
+        )
+
+        LenosAgent(Path("/tmp"))._populate_trajectory_context(
+            context, json.dumps({"schema_version": "ATIF-v1.7"})
+        )
+
+        self.assertIsNone(context.n_input_tokens)
+        self.assertIsNone(context.n_cache_tokens)
+        self.assertIsNone(context.n_output_tokens)
+        self.assertIsNone(context.cost_usd)
+        self.assertEqual(context.metadata, {})
+
     def test_apply_atif_trajectory_preserves_lenos_cost(self):
         context = SimpleNamespace(
             n_input_tokens=None,

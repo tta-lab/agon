@@ -342,7 +342,9 @@ class LenosAgent(BaseInstalledAgent):
         self._apply_atif_trajectory(context, trajectory)
 
     def _apply_atif_trajectory(self, context: AgentContext, trajectory: dict) -> None:
-        final_metrics = trajectory["final_metrics"]
+        final_metrics = trajectory.get("final_metrics")
+        if not isinstance(final_metrics, dict):
+            return
         extra = final_metrics.get("extra") or {}
         cost_usd = final_metrics.get("total_cost_usd")
         input_tokens = final_metrics.get("total_prompt_tokens")
